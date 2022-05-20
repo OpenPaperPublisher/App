@@ -1,10 +1,14 @@
-# Open Paper Matter
+# Open Paper Matter (OPM)
 
 ### Overview
 
 Static website publishing affords many advantages over dynamic sites for informational websites and blogs. Unfortunately, the authoring experience for static website tools tends to support software engineers without consideration for the user experience of the non-programmer author.
 
-This project seeks to address the authoring experience of static website by creating a desktop application for managing "front-matter" needed to make Dropbox’s “Paper” documents work as a document repository for a static website.
+This project seeks to address the authoring experience of static website by creating a desktop application for managing the "front-matter" needed to make Dropbox’s “Paper” documents work as a document repository for a static website.
+
+What is front-matter?
+
+Front-matter is metadata about a blog post that supports organizating and sorting records, as well as additional features. So, the category or tag applied to a document would be an example of data typically stored in front-matter. The term front-matter comes from an approach where this information is placed at the beginning of a Markdown document.
 
 ### Architecture
 1. Create Desktop App using https://tauri.studio/
