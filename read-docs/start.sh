@@ -5,4 +5,4 @@ set -a
 . $DIR/../.env
 set +a
 
-npx babel-watch ${DIR}/deleteTemplates.js
+npx babel-watch ${DIR}/index.js
