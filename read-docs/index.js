@@ -9,30 +9,30 @@ const showdownService = new showdown.Converter();
 const turndownService = new TurndownService();
 
 const ACCESS_TOKEN = process.env["ACCESS_TOKEN"];
-const FOLDER = process.env["FOLDER"];
+const FOLDER = "/" + process.env["FOLDER"];
 
 (async () => {
   const dbx = new Dropbox({ accessToken: ACCESS_TOKEN, fetch });
-
   const {
     result: { entries }
   } = await dbx.filesListFolder({ path: FOLDER });
+
 
   (
     await Promise.all(entries.map(({ id }) => dbx.filesExport({ path: id })))
   ).forEach(
     ({
       result: {
-        file_metadata: { rev },
+        file_metadata: { name },
         fileBinary
       }
     }) => {
       const htmlData = arrayBufferToBinaryString(fileBinary);
       const mdData = turndownService.turndown(htmlData);
-
-      fs.writeFileSync(`${rev}.html`, htmlData);
-      fs.writeFileSync(`${rev}.md`, mdData);
-      fs.writeFileSync(`${rev}-2.html`, showdownService.makeHtml(mdData));
+      
+      fs.writeFileSync(`${name}.html`, htmlData);
+      fs.writeFileSync(`${name}.md`, mdData);
+      fs.writeFileSync(`${name}-2.html`, showdownService.makeHtml(mdData));
     }
   );
 })();
