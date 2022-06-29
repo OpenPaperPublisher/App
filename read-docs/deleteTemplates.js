@@ -3,8 +3,6 @@ import fetch from "isomorphic-fetch";
 
 const ACCESS_TOKEN = process.env["ACCESS_TOKEN"];
 
-const templateFile = require("./OPMtemplate.json");
-
 //Deletes all templates
 (async () => {
 
@@ -21,5 +19,5 @@ const templateFile = require("./OPMtemplate.json");
     }
 
     console.log("Removed templates");
-    
+
 })();
