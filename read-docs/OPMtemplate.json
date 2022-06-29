@@ -1,0 +1,8 @@
+{
+  "name":"OPMtemplate",
+  "description":"A template for the OpenPaperMatter project.",
+  "fields":[
+    {"name":"Author", "description":"", "type":"string"},
+    {"name":"Date published", "description":"", "type":"string"}
+  ]
+}
