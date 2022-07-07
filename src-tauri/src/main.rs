@@ -17,7 +17,7 @@ enum AuthState {
 }
 
 struct AuthProgressData {
-    auth_type: dropbox_sdk::oauth2::Oauth2Type,
+    auth_type: dropbox_sdk::oauth2::Oauth2Type, //contains the PKCE randomly generated key
 }
 
 struct AuthInfo {
@@ -42,9 +42,7 @@ fn get_auth_url(auth: tauri::State<Mutex<AuthState>>) -> String {
 //Using the authorization code, complete the authentication process
 #[tauri::command]
 fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) {
-    println!("auth code: {}", code);
-
-    let auth_type = if let AuthState::AuthInProgress(auth_struct) = &*((auth).lock().unwrap()) {
+    let auth_type = if let AuthState::AuthInProgress(auth_struct) = &*(auth).lock().unwrap() {
         auth_struct.auth_type.clone()
     } else {
         panic!("Something went wrong") //TODO: change this such that it just tells the user that something went wrong
