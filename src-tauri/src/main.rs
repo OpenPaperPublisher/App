@@ -19,7 +19,7 @@ struct AuthProgressData {
 }
 
 struct AuthInfo {
-    client: dropbox_sdk::default_client::UserAuthDefaultClient,
+    client: dropbox_sdk::default_client::UserAuthDefaultClient, //used to pass into every API call
 }
 
 #[tauri::command]
@@ -32,10 +32,12 @@ fn get_auth_url(auth: tauri::State<Mutex<AuthState>>) -> String {
         .as_str()
         .to_string();
 
+    //Update the auth state to now be `in progress`
     *auth.lock().unwrap() = AuthState::AuthInProgress(AuthProgressData { auth_type });
     url
 }
 
+//Using the authorization code, complete the authentication process
 #[tauri::command]
 fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) {
     println!("auth code: {}", code);
@@ -55,6 +57,7 @@ fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) {
         ),
     );
 
+    //This is a test to prove that the authentication is working
     let result = dropbox_sdk::files::list_folder(
         &client,
         &dropbox_sdk::files::ListFolderArg::new("".to_string()),
@@ -63,18 +66,16 @@ fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) {
     .expect("There was an error getting the folders");
 
     println!("Folder contents: {:?}", result.entries);
+    //End test code
 
     *auth.lock().unwrap() = AuthState::Authenticated(AuthInfo { client });
 }
 
-//  dropbox_sdk::default_client::UserAuthDefaultClient::new();
-
 fn main() {
     let context = tauri::generate_context!();
-    // let code: oauth2::PkceCode = oauth2::PkceCode::new();
 
     //TODO: implement a way to tell if the user has been authenticated in the past and thus would not require another verification process (setting the state of auth_state to Authenticated)
-    let state = AuthState::NotAuthenticated; //this is taken out of the function to make more sense later
+    let state = AuthState::NotAuthenticated; //This is taken out of the function because the state could change depending on pre-existing verification
     tauri::Builder::default()
         .menu(if cfg!(target_os = "macos") {
             tauri::Menu::os_default(&context.package_info().name)
