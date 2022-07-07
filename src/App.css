@@ -32,11 +32,20 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
-button {
-  font-size: calc(10px + 2vmin);
+.auth_url {
+  background-color: #61dafb;
+  color: white;
+  padding: 15px 25px;
+  text-decoration: none;
+  border-radius: 5px;
+}
+
+.auth_url:hover {
+  background-color: #4697ad;
 }
