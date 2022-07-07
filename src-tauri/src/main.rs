@@ -7,6 +7,8 @@ use std::sync::Mutex;
 
 use dropbox_sdk::oauth2;
 
+const APPKEY: &str = "z4c46xuhvi38jhh";
+
 //A state to manage what stage of authentication the user is at as well as store any corresponding data for each
 enum AuthState {
     NotAuthenticated,
@@ -27,7 +29,7 @@ fn get_auth_url(auth: tauri::State<Mutex<AuthState>>) -> String {
     let auth_type = oauth2::Oauth2Type::PKCE(oauth2::PkceCode::new());
 
     //Need to store it as a variable for `auth-type` to dereference
-    let url = oauth2::AuthorizeUrlBuilder::new("z4c46xuhvi38jhh", &auth_type)
+    let url = oauth2::AuthorizeUrlBuilder::new(APPKEY, &auth_type)
         .build()
         .as_str()
         .to_string();
@@ -50,7 +52,7 @@ fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) {
 
     let client = dropbox_sdk::default_client::UserAuthDefaultClient::new(
         oauth2::Authorization::from_auth_code(
-            "z4c46xuhvi38jhh".to_string(),
+            APPKEY.to_string(),
             auth_type,
             code.to_string(),
             None,
