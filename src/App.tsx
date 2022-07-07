@@ -26,9 +26,7 @@ function App() {
           <input type='text' id="auth-code" placeholder='Paste authentication code here' />
           <button onClick={() => {
             let code = (document.getElementById("auth-code") as HTMLInputElement).value;
-            console.log(code);
             invoke('finalize_auth', { code });
-            console.log('hi');
           }}>Submit</button>
         </p>
         <p>
