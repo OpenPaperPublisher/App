@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, SetStateAction } from 'react'
 import logo from './logo.svg'
 import './App.css'
 import { invoke } from '@tauri-apps/api'
@@ -49,15 +49,52 @@ const AuthPage = (props: BaseParams) => {
   )
 };
 
+interface FileType {
+  '.tag': string,
+  client_modified: string,
+  id: string,
+  name: string,
+  property_groups: Array<any>, //TODO: Determine the type of the property groups (or if it even is an array)
+  path_display: string,
+  path_lower: string,
+  size: number,
+}
+interface FolderType {
+  '.tag': string,
+  id: string,
+  name: string,
+  path_display: string,
+  path_lower: string,
+  property_groups: Array<any>, //TODO: Determine the type of the property groups (or if it even is an array)
+}
 const MainPage = (props: BaseParams) => {
 
+  const [baseDirFileData, setBaseDirData] = useState<Array<FolderType | FileType> | null>(null);
+
   useEffect(() => {
-    invoke('upsert_template').catch((err) => { console.error(err) });
+    invoke('upsert_template').catch((err) => console.error(err));
+    invoke('list_base_dir').then((result) => {
+
+      let data = result as Array<FolderType | FileType>;
+
+      setBaseDirData(data);
+
+    }).catch((err) => console.error(err));
   }, []);
 
   return (
     < div className="App" >
-      <div className='nav'>
+      <div className='list'>
+        {
+          baseDirFileData?.map((datum) => {
+            if (datum['.tag'] === "file") {
+              return <FileComponent file={datum as FileType} />
+            }
+            else if (datum['.tag'] === "folder") {
+              return <FolderComponent folder={datum as FolderType} />
+            }
+          })
+        }
       </div>
     </div>
   )
@@ -67,6 +104,27 @@ const ErrorPage = () => {
   return (
     <div>Error, this page occurs when the app attemps to swap to a page that doesn't exist. Please open an issue if you ever see this page</div>
   )
+}
+
+const FileComponent = (props: { file: FileType }) => {
+
+  return (
+    <div className='FileComponent'>
+      <img />
+      Name: {props.file.name}
+    </div>
+  )
+
+}
+
+const FolderComponent = (props: { folder: FolderType }) => {
+
+  return (
+    <div className='FolderComponent'>
+      <img /> Name: {props.folder.name}
+    </div>
+  )
+
 }
 
 function App() {

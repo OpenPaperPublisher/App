@@ -137,6 +137,24 @@ fn upsert_template(
     Ok(())
 }
 
+#[tauri::command]
+fn list_base_dir(
+    auth: tauri::State<Mutex<AuthState>>,
+) -> Result<Vec<dropbox_sdk::files::Metadata>, StringFromErr> {
+    use dropbox_sdk::files;
+
+    let guard = auth.lock().unwrap();
+    let info = if let AuthState::Authenticated(info) = &*guard {
+        info
+    } else {
+        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
+    };
+
+    let data = files::list_folder(&info.client, &files::ListFolderArg::new("".into()))??.entries;
+    Ok(data)
+    //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
+}
+
 fn main() {
     let context = tauri::generate_context!();
 
@@ -154,6 +172,7 @@ fn main() {
             get_auth_url,
             finalize_auth,
             upsert_template,
+            list_base_dir,
         ])
         .run(context)
         .expect("error while running tauri application");
