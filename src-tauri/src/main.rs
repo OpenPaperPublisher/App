@@ -3,11 +3,37 @@
     windows_subsystem = "windows"
 )]
 
-use std::sync::Mutex;
+use std::{fs, sync::Mutex};
 
 use dropbox_sdk::oauth2;
 
 const APPKEY: &str = "z4c46xuhvi38jhh";
+
+#[derive(serde::Serialize)]
+struct StringFromErr(String);
+impl<E> From<E> for StringFromErr
+where
+    E: std::error::Error,
+{
+    fn from(e: E) -> Self {
+        Self(format!("{}", e))
+    }
+}
+
+#[derive(serde::Deserialize, std::fmt::Debug)]
+struct Template {
+    // Display name for the template. Template names can be up to 256 bytes.
+    pub name: String,
+    // Description for the template. Template descriptions can be up to 1024 bytes.
+    pub description: String,
+    // Definitions of the property fields associated with this template. There can be up to 32
+    // properties in a single template.
+    pub fields: Vec<dropbox_sdk::file_properties::PropertyFieldTemplate>,
+}
+
+struct AppInfo {
+    template_id: Option<String>,
+}
 
 //A state to manage what stage of authentication the user is at as well as store any corresponding data for each
 enum AuthState {
@@ -41,34 +67,74 @@ fn get_auth_url(auth: tauri::State<Mutex<AuthState>>) -> String {
 
 //Using the authorization code, complete the authentication process
 #[tauri::command]
-fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) {
-    let auth_type = if let AuthState::AuthInProgress(auth_struct) = &*(auth).lock().unwrap() {
-        auth_struct.auth_type.clone()
+fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) -> Result<(), StringFromErr> {
+    let mut lock = auth.lock().unwrap();
+    let auth_type = if let AuthState::AuthInProgress(auth_struct) = &*lock {
+        &auth_struct.auth_type
     } else {
-        panic!("Something went wrong") //TODO: change this such that it just tells the user that something went wrong
+        return Err(StringFromErr("There was an error accessing the authentication type (OAuth2 not initalized / Auth State incorrect)".to_string()));
     };
 
     let client = dropbox_sdk::default_client::UserAuthDefaultClient::new(
         oauth2::Authorization::from_auth_code(
             APPKEY.to_string(),
-            auth_type,
+            auth_type.clone(),
             code.to_string(),
             None,
         ),
     );
 
-    //This is a test to prove that the authentication is working
-    let result = dropbox_sdk::files::list_folder(
-        &client,
-        &dropbox_sdk::files::ListFolderArg::new("".to_string()),
-    )
-    .expect("There was an error querying dropbox")
-    .expect("There was an error getting the folders");
+    //make a test call to ensure the client was built correctly
+    dropbox_sdk::files::list_folder(&client, &dropbox_sdk::files::ListFolderArg::new("".into()))??;
 
-    println!("Folder contents: {:?}", result.entries);
-    //End test code
+    *lock = AuthState::Authenticated(AuthInfo { client });
 
-    *auth.lock().unwrap() = AuthState::Authenticated(AuthInfo { client });
+    Ok(())
+}
+
+//Checks the app's registered templates to see if a template exists.
+//-If no template exists, it creates a new one
+//-If the template exists, it updates it with the most recent `template.json` file configuration
+#[tauri::command]
+fn upsert_template(
+    auth: tauri::State<Mutex<AuthState>>,
+    app_info: tauri::State<Mutex<AppInfo>>,
+) -> Result<(), StringFromErr> {
+    use dropbox_sdk::file_properties;
+
+    let guard = auth.lock().unwrap();
+    let info = if let AuthState::Authenticated(info) = &*guard {
+        info
+    } else {
+        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
+    };
+
+    let templates = file_properties::templates_list_for_user(&info.client)??;
+
+    let file = fs::read_to_string("template.json")?;
+    let template: Template = serde_json::from_str(file.as_str())?;
+    println!(
+        "The list of templates that have been generated: {:?}",
+        &templates
+    );
+    if templates.template_ids.is_empty() {
+        //Create the template from the JSON fill
+        let arg = file_properties::AddTemplateArg::new(
+            template.name,
+            template.description,
+            template.fields,
+        );
+        let result = file_properties::templates_add_for_user(&info.client, &arg)??;
+        app_info.lock().unwrap().template_id = Some(result.template_id);
+    } else {
+        //Update the template from the JSON file
+        let arg = file_properties::UpdateTemplateArg::new(templates.template_ids[0].clone())
+            .with_add_fields(template.fields);
+        file_properties::templates_update_for_user(&info.client, &arg)??;
+        app_info.lock().unwrap().template_id = Some(templates.template_ids[0].clone());
+    }
+
+    Ok(())
 }
 
 fn main() {
@@ -83,7 +149,12 @@ fn main() {
             tauri::Menu::default()
         })
         .manage(Mutex::new(state))
-        .invoke_handler(tauri::generate_handler![get_auth_url, finalize_auth,])
+        .manage(Mutex::new(AppInfo { template_id: None }))
+        .invoke_handler(tauri::generate_handler![
+            get_auth_url,
+            finalize_auth,
+            upsert_template,
+        ])
         .run(context)
         .expect("error while running tauri application");
 }
