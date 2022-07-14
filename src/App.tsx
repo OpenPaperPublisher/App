@@ -3,8 +3,15 @@ import logo from './logo.svg'
 import './App.css'
 import { invoke } from '@tauri-apps/api'
 
+
+const Pages = {
+  AuthPage: 'AuthPage',
+  MainPage: 'MainPage',
+  ErrorPage: 'ErrorPage',
+}
+
 interface BaseParams {
-  setState: (state: number) => void,
+  setState: (state: string) => void,
 }
 const AuthPage = (props: BaseParams) => {
 
@@ -19,7 +26,7 @@ const AuthPage = (props: BaseParams) => {
 
 
   return (
-    < div className="App">
+    <div className="App">
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
         <p>
@@ -35,10 +42,10 @@ const AuthPage = (props: BaseParams) => {
         <p>
           <input type='text' id="auth-code" placeholder='Paste authentication code here' />
           <button onClick={() => {
-            let code: string = (document.getElementById("auth-code") as HTMLInputElement).value;
+            const code: string = (document.getElementById("auth-code") as HTMLInputElement).value;
             invoke('finalize_auth', { code })
               .catch((err) => console.error(err))
-              .then(() => props.setState(1));
+              .then(() => props.setState(Pages.MainPage));
           }}>Submit</button>
         </p>
         <p>
@@ -129,13 +136,13 @@ const FolderComponent = (props: { folder: FolderType }) => {
 
 function App() {
 
-  const [state, setState] = useState(0);
+  const [state, setState] = useState(Pages.AuthPage);
 
   //depending on the state of the app (set through an enum, the app will display a specific page)
   switch (state) {
-    case 0:
+    case Pages.AuthPage:
       return <AuthPage setState={setState} />;
-    case 1:
+    case Pages.MainPage:
       return <MainPage setState={setState} />;
     default:
       return <ErrorPage />
