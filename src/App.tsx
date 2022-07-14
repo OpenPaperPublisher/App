@@ -113,10 +113,11 @@ const ErrorPage = () => {
   )
 }
 
+//The 'bottom level' component that actually contains a single dropbox file's information
 const FileComponent = (props: { file: FileType }) => {
 
   return (
-    <div className='FileComponent'>
+    <div className='text-green-500'>
       <img />
       Name: {props.file.name}
     </div>
@@ -124,11 +125,35 @@ const FileComponent = (props: { file: FileType }) => {
 
 }
 
+//A Recursive component which should be able to render branching levels of documents
 const FolderComponent = (props: { folder: FolderType }) => {
+
+  const [subFiles, setSubFiles] = useState<Array<FolderType | FileType> | null>(null);
+
+  function listSubfiles() {
+    invoke('list_target_dir', { target: props.folder.path_lower }).then((result) => {
+
+      let data = result as Array<FolderType | FileType>;
+
+      setSubFiles(data);
+
+    }).catch((err) => console.error(err));
+  }
 
   return (
     <div className='FolderComponent'>
-      <img /> Name: {props.folder.name}
+      <img /> Name: {props.folder.name} <button onClick={() => { if (!subFiles) { listSubfiles() } else setSubFiles(null) }}>click</button>
+      <div className='Subfiles'> {
+        subFiles?.map((datum) => {
+          if (datum['.tag'] === "file") {
+            return <FileComponent file={datum as FileType} />
+          }
+          else if (datum['.tag'] === "folder") {
+            return <FolderComponent folder={datum as FolderType} />
+          }
+        })
+      }
+      </div>
     </div>
   )
 
