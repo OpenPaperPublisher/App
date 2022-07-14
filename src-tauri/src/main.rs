@@ -22,12 +22,12 @@ where
 
 #[derive(serde::Deserialize, std::fmt::Debug)]
 struct Template {
-    /// Display name for the template. Template names can be up to 256 bytes.
+    // Display name for the template. Template names can be up to 256 bytes.
     pub name: String,
-    /// Description for the template. Template descriptions can be up to 1024 bytes.
+    // Description for the template. Template descriptions can be up to 1024 bytes.
     pub description: String,
-    /// Definitions of the property fields associated with this template. There can be up to 32
-    /// properties in a single template.
+    // Definitions of the property fields associated with this template. There can be up to 32
+    // properties in a single template.
     pub fields: Vec<dropbox_sdk::file_properties::PropertyFieldTemplate>,
 }
 

@@ -26,7 +26,7 @@ const AuthPage = (props: BaseParams) => {
 
 
   return (
-    < div className="App">
+    <div className="App">
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
         <p>
@@ -42,7 +42,7 @@ const AuthPage = (props: BaseParams) => {
         <p>
           <input type='text' id="auth-code" placeholder='Paste authentication code here' />
           <button onClick={() => {
-            let code: string = (document.getElementById("auth-code") as HTMLInputElement).value;
+            const code: string = (document.getElementById("auth-code") as HTMLInputElement).value;
             invoke('finalize_auth', { code })
               .catch((err) => console.error(err))
               .then(() => props.setState(Pages.MainPage));
