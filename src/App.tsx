@@ -26,22 +26,22 @@ const AuthPage = (props: BaseParams) => {
 
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
+    <div className='text-center font-mono font-bold text-zinc-300'>
+      <header className='flex align-center justify-center flex-col min-h-[100%] space-y-10'>
+        <img className='h-[40vmin] pointer-events-none animate-[spin_20s_linear_infinite] mx-auto' src={logo} alt="logo" />
         <p>
           <a
             id="auth_url"
-            className='auth_url'
+            className='text-[5vh] p-2 rounded-lg text-white underline bg-cyan-400 border-white hover:bg-cyan-500 hover:border-zinc-100} border-4'
             href={authUrl}
             target="_blank"
           >
             Obtain Auth Key
           </a>
         </p>
-        <p>
-          <input type='text' id="auth-code" placeholder='Paste authentication code here' />
-          <button onClick={() => {
+        <p className='space-x-4'>
+          <input className='rounded-md px-1 min-w-[20vw] text-slate-700' type='text' id="auth-code" placeholder='Paste authentication code here' />
+          <button className='bg-cyan-200 rounded-md px-1 text-slate-700 border-slate-500 border-2  ' onClick={() => {
             const code: string = (document.getElementById("auth-code") as HTMLInputElement).value;
             invoke('finalize_auth', { code })
               .catch((err) => console.error(err))
@@ -76,11 +76,12 @@ interface FolderType {
 }
 const MainPage = (props: BaseParams) => {
 
+  const [targetBaseDir, setBaseDir] = useState("");
   const [baseDirFileData, setBaseDirData] = useState<Array<FolderType | FileType> | null>(null);
 
   useEffect(() => {
     invoke('upsert_template').catch((err) => console.error(err));
-    invoke('list_base_dir').then((result) => {
+    invoke('list_target_dir', { target: targetBaseDir }).then((result) => {
 
       let data = result as Array<FolderType | FileType>;
 
@@ -90,18 +91,24 @@ const MainPage = (props: BaseParams) => {
   }, []);
 
   return (
-    < div className="App" >
-      <div className='list'>
-        {
-          baseDirFileData?.map((datum) => {
-            if (datum['.tag'] === "file") {
-              return <FileComponent file={datum as FileType} />
-            }
-            else if (datum['.tag'] === "folder") {
-              return <FolderComponent folder={datum as FolderType} />
-            }
-          })
-        }
+    < div className='text-white'>
+      <div className='text-[2vw] font-bold font-lg px-52 pt-52'>
+        <h1>Dropbox Documents</h1>
+      </div>
+      <div className='break py-20' />
+      <div className='flex'>
+        <div className='List of Files py-10 pl-5 bg-slate-900 w-15 h-[50vh] overflow-y-scroll'>
+          {
+            baseDirFileData?.map((datum) => {
+              if (datum['.tag'] === "file") {
+                return <FileComponent file={datum as FileType} />
+              }
+              else if (datum['.tag'] === "folder") {
+                return <FolderComponent folder={datum as FolderType} />
+              }
+            })
+          }
+        </div>
       </div>
     </div>
   )
@@ -117,9 +124,9 @@ const ErrorPage = () => {
 const FileComponent = (props: { file: FileType }) => {
 
   return (
-    <div className='text-green-500'>
+    <div>
       <img />
-      Name: {props.file.name}
+      📄{props.file.name}
     </div>
   )
 
@@ -142,8 +149,16 @@ const FolderComponent = (props: { folder: FolderType }) => {
 
   return (
     <div className='FolderComponent'>
-      <img /> Name: {props.folder.name} <button onClick={() => { if (!subFiles) { listSubfiles() } else setSubFiles(null) }}>click</button>
-      <div className='Subfiles'> {
+      <img />
+      {subFiles ? <text>📂</text> : <text>📁</text>}
+
+      {props.folder.name}
+
+      <button className='px-2' onClick={() => { if (!subFiles) { listSubfiles() } else setSubFiles(null) }}>
+        {subFiles ? <text>🔽</text> : <text>▶</text>}
+      </button>
+
+      <div className='Subfiles px-5'> {
         subFiles?.map((datum) => {
           if (datum['.tag'] === "file") {
             return <FileComponent file={datum as FileType} />
