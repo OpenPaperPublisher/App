@@ -76,19 +76,26 @@ interface FolderType {
 }
 const MainPage = (props: BaseParams) => {
 
-  const [targetBaseDir, setBaseDir] = useState("");
+  const [baseDir, setBaseDir] = useState("");
   const [baseDirFileData, setBaseDirData] = useState<Array<FolderType | FileType> | null>(null);
 
   useEffect(() => {
     invoke('upsert_template').catch((err) => console.error(err));
-    invoke('list_target_dir', { target: targetBaseDir }).then((result) => {
+    listSubfiles("");
+  }, []);
+
+  function listSubfiles(target: string) {
+    setBaseDir(target);
+    setBaseDirData(null);
+    invoke('list_target_dir', { target }).then((result) => {
 
       let data = result as Array<FolderType | FileType>;
 
       setBaseDirData(data);
 
     }).catch((err) => console.error(err));
-  }, []);
+  }
+
 
   return (
     < div className='text-white'>
@@ -97,14 +104,31 @@ const MainPage = (props: BaseParams) => {
       </div>
       <div className='break py-20' />
       <div className='flex'>
-        <div className='List of Files py-10 pl-5 bg-slate-900 w-15 h-[50vh] overflow-y-scroll'>
+        <div className='List of Files py-10 pl-5 bg-slate-900 w-80 h-[50vh] overflow-y-auto whitespace-nowrap noScrollBar'>
+          <div className='flex overflow-x-auto'>
+            {
+              baseDir.split('/').map((element) => {
+                if (element == "") return; //the first element can be empty
+                return (
+                  <div className='flex'>
+                    <p>/</p>
+                    <p className="px-2 cursor-pointer underline" onClick={() => {
+                      listSubfiles(baseDir.substring(0, baseDir.indexOf("/" + element)))
+                    }}>
+                      {element}
+                    </p>
+                  </div>
+                )
+              })
+            }
+          </div>
           {
             baseDirFileData?.map((datum) => {
               if (datum['.tag'] === "file") {
                 return <FileComponent file={datum as FileType} />
               }
               else if (datum['.tag'] === "folder") {
-                return <FolderComponent folder={datum as FolderType} />
+                return <FolderComponent folder={datum as FolderType} callList={listSubfiles} />
               }
             })
           }
@@ -124,7 +148,7 @@ const ErrorPage = () => {
 const FileComponent = (props: { file: FileType }) => {
 
   return (
-    <div>
+    <div className='FileComponent cursor-pointer overflow-ellipsis underline hover:bg-slate-700' onClick={() => { console.log("test") }}>
       <img />
       📄{props.file.name}
     </div>
@@ -133,7 +157,7 @@ const FileComponent = (props: { file: FileType }) => {
 }
 
 //A Recursive component which should be able to render branching levels of documents
-const FolderComponent = (props: { folder: FolderType }) => {
+const FolderComponent = (props: { folder: FolderType, callList: Function }) => {
 
   const [subFiles, setSubFiles] = useState<Array<FolderType | FileType> | null>(null);
 
@@ -148,23 +172,25 @@ const FolderComponent = (props: { folder: FolderType }) => {
   }
 
   return (
-    <div className='FolderComponent'>
-      <img />
-      {subFiles ? <text>📂</text> : <text>📁</text>}
+    <div className='FolderComponent cursor-default'>
+      <div className='flex hover:bg-slate-600'>
+        <div className='cursor-pointer' onDoubleClick={() => props.callList(props.folder.path_lower)}>
+          {subFiles ? "📂" : "📁"}
+        </div>
 
-      {props.folder.name}
+        {props.folder.name}
 
-      <button className='px-2' onClick={() => { if (!subFiles) { listSubfiles() } else setSubFiles(null) }}>
-        {subFiles ? <text>🔽</text> : <text>▶</text>}
-      </button>
-
+        <button className='px-2' onClick={() => { if (!subFiles) { listSubfiles() } else setSubFiles(null) }}>
+          {subFiles ? "🔽" : "▶"}
+        </button>
+      </div>
       <div className='Subfiles px-5'> {
         subFiles?.map((datum) => {
           if (datum['.tag'] === "file") {
             return <FileComponent file={datum as FileType} />
           }
           else if (datum['.tag'] === "folder") {
-            return <FolderComponent folder={datum as FolderType} />
+            return <FolderComponent folder={datum as FolderType} callList={props.callList} />
           }
         })
       }

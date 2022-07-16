@@ -11,3 +11,8 @@
 @layer components {
 
 }
+
+
+.noScrollBar::-webkit-scrollbar {
+    display:none;
+}
