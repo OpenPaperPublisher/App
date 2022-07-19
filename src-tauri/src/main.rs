@@ -5,7 +5,7 @@
 
 use std::{fs, sync::Mutex};
 
-use dropbox_sdk::oauth2;
+use dropbox_sdk::{file_properties::PropertyGroup, oauth2};
 
 const APPKEY: &str = "z4c46xuhvi38jhh";
 
@@ -179,6 +179,81 @@ fn list_target_dir(
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
 }
 
+#[tauri::command]
+fn set_file_properties(
+    auth: tauri::State<Mutex<AuthState>>,
+    app_info: tauri::State<Mutex<AppInfo>>,
+    target: String,
+    properties: Vec<dropbox_sdk::file_properties::PropertyField>,
+) -> Result<(), StringFromErr> {
+    use dropbox_sdk::file_properties;
+
+    let guard = auth.lock().unwrap();
+    let auth_info = if let AuthState::Authenticated(info) = &*guard {
+        info
+    } else {
+        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
+    };
+
+    let guard = app_info.lock().unwrap();
+    let template_id = guard
+        .template_id
+        .as_ref()
+        .ok_or_else(|| {
+            StringFromErr(
+                "There was an error accessing the template id (template id not initialized)".into(),
+            )
+        })?
+        .clone();
+
+    file_properties::properties_add(
+        &auth_info.client,
+        &file_properties::AddPropertiesArg::new(
+            target,
+            vec![file_properties::PropertyGroup::new(template_id, properties)],
+        ),
+    )??;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn download_file(
+    auth: tauri::State<Mutex<AuthState>>,
+    target_path: String,
+) -> Result<(), StringFromErr> {
+    use dropbox_sdk::files;
+
+    let guard = auth.lock().unwrap();
+    let auth_info = if let AuthState::Authenticated(info) = &*guard {
+        info
+    } else {
+        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
+    };
+
+    let request_result = files::export(
+        &auth_info.client,
+        &files::ExportArg::new(target_path),
+        None,
+        None,
+    )??;
+
+    let mut body = request_result.body.ok_or_else(|| {
+        StringFromErr(
+            "There was no body returned in the HTMLRequest (HTMLRequest Error: no body)".into(),
+        )
+    })?;
+
+    let data = request_result.result.file_metadata;
+    let mut file_content: String = String::new();
+
+    body.read_to_string(&mut file_content)?;
+
+    fs::write(["./", data.name.as_str()].concat(), file_content)?;
+
+    Ok(())
+}
+
 fn main() {
     let context = tauri::generate_context!();
 
@@ -198,6 +273,7 @@ fn main() {
             upsert_template,
             list_base_dir,
             list_target_dir,
+            download_file,
         ])
         .run(context)
         .expect("error while running tauri application");
