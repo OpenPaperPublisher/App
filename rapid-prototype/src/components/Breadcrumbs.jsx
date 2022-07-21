@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Fragment } from "react";
 import { PAGE_HOME } from "../constants";
 
 const Breadcrumbs = ({ paths, dispatch }) => {
@@ -21,7 +21,7 @@ const Breadcrumbs = ({ paths, dispatch }) => {
       </a>
 
       {paths.map(({ page, name }) => (
-        <React.Fragment key={page}>
+        <Fragment key={page}>
           <span className="mx-5 text-gray-500">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -48,7 +48,7 @@ const Breadcrumbs = ({ paths, dispatch }) => {
             </a>
           )}
           {!page && <h2>{name}</h2>}
-        </React.Fragment>
+        </Fragment>
       ))}
     </div>
   );

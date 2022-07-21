@@ -1,20 +1,35 @@
 import { useReducer } from "react";
+import { PAGE_HOME, PAGE_FOLDERS, PAGE_DOCUMENTS } from "./constants";
 import Home from "./pages/Home";
 import Folders from "./pages/Folders";
-import { PAGE_HOME, PAGE_FOLDERS } from "./constants";
+import Documents from "./pages/Documents";
 
 const initialState = { type: PAGE_HOME, Component: Home };
 
+const homeCrumb = { page: PAGE_HOME, name: "Home" };
+
 const reducer = (state, action) => {
-  switch (action.type) {
+  switch (action["type"]) {
     case PAGE_HOME:
       return { ...state, Component: Home };
     case PAGE_FOLDERS:
       return {
         ...state,
         Component: Folders,
-        breadcrumbs: [{ page: PAGE_HOME, name: "Home" }, { name: "Folders" }]
+        breadcrumbs: [homeCrumb, { name: "Folders" }]
       };
+    case PAGE_DOCUMENTS:
+      return {
+        ...state,
+        Component: Documents,
+        folderId: action["folderId"],
+        breadcrumbs: [
+          homeCrumb,
+          { page: PAGE_FOLDERS, name: "Folders" },
+          { name: "Documents" }
+        ]
+      };
+
     default:
       throw new Error();
   }

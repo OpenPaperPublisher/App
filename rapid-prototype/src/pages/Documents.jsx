@@ -1,41 +1,41 @@
 import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Table from "../components/Table";
-import { PAGE_DOCUMENTS } from "../constants";
 
-const fakeFolderApiResponse = async () => {
+const fakeDocumentApiResponse = async (folderId) => {
   return {
-    folders: [
-      { name: "Folder A", id: "A" },
-      { name: "Folder B", id: "B" },
-      { name: "Folder C", id: "C" }
+    documents: [
+      { name: "Document 1", id: "1" },
+      { name: "Document 2", id: "2" },
+      { name: "Document 1", id: "3" }
     ]
   };
 };
 
-const Folders = ({ breadcrumbs, dispatch }) => {
-  const [folders, setFolders] = useState([]);
+const Documents = ({ breadcrumbs, dispatch, folderId }) => {
+  const [documents, setDocuments] = useState([]);
 
   useEffect(() => {
-    fakeFolderApiResponse().then(({ folders }) => setFolders(folders));
-  }, []);
+    fakeDocumentApiResponse(folderId).then(({ documents }) =>
+      setDocuments(documents)
+    );
+  }, [folderId]);
 
   return (
     <div>
       <Breadcrumbs paths={breadcrumbs} dispatch={dispatch} />
       <h2 className="text-3xl font-bold text-gray-800 md:text-2xl mb-4">
-        Folders
+        Documents
       </h2>
-
-      <Table headers={["Folder Name"]}>
-        {folders.map(({ id, name }) => (
+      <Table headers={["Document Title"]}>
+        {documents.map(({ id, name }) => (
           <tr key={id} className="text-gray-700">
             <td className="px-4 py-3">
               <div className="flex items-center text-sm">
                 <div
                   className="cursor-pointer"
                   onClick={() => {
-                    dispatch({ type: PAGE_DOCUMENTS, folderId: id });
+                    console.log("drawer...");
                   }}
                 >
                   {name}
@@ -48,4 +48,5 @@ const Folders = ({ breadcrumbs, dispatch }) => {
     </div>
   );
 };
-export default Folders;
+
+export default Documents;
