@@ -145,8 +145,6 @@ fn upsert_template(
 }
 
 // Lists the target directory of the user's dropbox
-// NOTE: this could technically make the `list_base_dir` command obsolete by just providing the argument of "" or whatever the user-specified base directory's path is
-// list_base_dir command currently left for convienience
 #[tauri::command]
 fn list_target_dir(
     auth: tauri::State<Mutex<AuthState>>,
@@ -300,6 +298,7 @@ fn export_folder(
             )
         })?;
 
+        // File metadata from the export is not sufficient and incomplete, so a separate backend call must be done
         let data = if let files::Metadata::File(metadata) = files::get_metadata(
             &auth_info.client,
             &files::GetMetadataArg::new(path).with_include_property_groups(
