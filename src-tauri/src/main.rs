@@ -144,26 +144,6 @@ fn upsert_template(
     Ok(())
 }
 
-//Lists the base directory of the user's dropbox
-//NOTE: the 'base directory' can actually be changed to be another directory if the user so wished and the feature
-#[tauri::command]
-fn list_base_dir(
-    auth: tauri::State<Mutex<AuthState>>,
-) -> Result<Vec<dropbox_sdk::files::Metadata>, StringFromErr> {
-    use dropbox_sdk::files;
-
-    let guard = auth.lock().unwrap();
-    let info = if let AuthState::Authenticated(info) = &*guard {
-        info
-    } else {
-        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
-    };
-
-    let data = files::list_folder(&info.client, &files::ListFolderArg::new("".into()))??.entries; //This is where the base directory folder could be changed
-    Ok(data)
-    //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
-}
-
 // Lists the target directory of the user's dropbox
 // NOTE: this could technically make the `list_base_dir` command obsolete by just providing the argument of "" or whatever the user-specified base directory's path is
 // list_base_dir command currently left for convienience
@@ -383,7 +363,6 @@ fn main() {
             get_auth_url,
             finalize_auth,
             upsert_template,
-            list_base_dir,
             set_file_properties,
             list_target_dir,
             export_folder,
