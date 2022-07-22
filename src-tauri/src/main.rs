@@ -5,9 +5,11 @@
 
 use std::{fs, sync::Mutex};
 
-use dropbox_sdk::{file_properties::PropertyGroup, oauth2};
+use dropbox_sdk::oauth2;
 
 const APPKEY: &str = "z4c46xuhvi38jhh";
+
+static TEMPLATE_JSON: &str = include_str!("template.json");
 
 #[derive(serde::Serialize)]
 struct StringFromErr(String);
@@ -16,11 +18,12 @@ where
     E: std::error::Error,
 {
     fn from(e: E) -> Self {
+        println!("{:?}", e);
         Self(format!("{}", e))
     }
 }
 
-#[derive(serde::Deserialize, std::fmt::Debug)]
+#[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
 struct Template {
     // Display name for the template. Template names can be up to 256 bytes.
     pub name: String,
@@ -48,6 +51,11 @@ struct AuthProgressData {
 
 struct AuthInfo {
     client: dropbox_sdk::default_client::UserAuthDefaultClient, //used to pass into every API call
+}
+
+#[derive(serde::Serialize)]
+struct FileMetadata {
+    data: Vec<std::collections::HashMap<String, String>>,
 }
 
 #[tauri::command]
@@ -111,8 +119,7 @@ fn upsert_template(
 
     let templates = file_properties::templates_list_for_user(&info.client)??;
 
-    let file = fs::read_to_string("template.json")?;
-    let template: Template = serde_json::from_str(file.as_str())?;
+    let template: Template = serde_json::from_str(TEMPLATE_JSON)?;
     println!(
         "The list of templates that have been generated: {:?}",
         &templates
@@ -163,8 +170,10 @@ fn list_base_dir(
 #[tauri::command]
 fn list_target_dir(
     auth: tauri::State<Mutex<AuthState>>,
+    app_info: tauri::State<Mutex<AppInfo>>,
     target: String,
 ) -> Result<Vec<dropbox_sdk::files::Metadata>, StringFromErr> {
+    use dropbox_sdk::file_properties;
     use dropbox_sdk::files;
 
     let guard = auth.lock().unwrap();
@@ -174,7 +183,24 @@ fn list_target_dir(
         return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
     };
 
-    let data = files::list_folder(&info.client, &files::ListFolderArg::new(target))??.entries; //This is where the base directory folder could be changed
+    let guard = app_info.lock().unwrap();
+    let template_id = guard
+        .template_id
+        .as_ref()
+        .ok_or_else(|| {
+            StringFromErr(
+                "There was an error accessing the template id (template id not initialized)".into(),
+            )
+        })?
+        .clone();
+
+    let data = files::list_folder(
+        &info.client,
+        &files::ListFolderArg::new(target).with_include_property_groups(
+            file_properties::TemplateFilterBase::FilterSome(vec![template_id]),
+        ),
+    )??
+    .entries; //This is where the base directory folder could be changed
     Ok(data)
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
 }
@@ -187,6 +213,7 @@ fn set_file_properties(
     properties: Vec<dropbox_sdk::file_properties::PropertyField>,
 ) -> Result<(), StringFromErr> {
     use dropbox_sdk::file_properties;
+    use dropbox_sdk::files;
 
     let guard = auth.lock().unwrap();
     let auth_info = if let AuthState::Authenticated(info) = &*guard {
@@ -206,11 +233,42 @@ fn set_file_properties(
         })?
         .clone();
 
-    file_properties::properties_add(
+    let file = if let files::Metadata::File(metadata) = files::get_metadata(
         &auth_info.client,
-        &file_properties::AddPropertiesArg::new(
+        &files::GetMetadataArg::new(target.clone()).with_include_property_groups(
+            file_properties::TemplateFilterBase::FilterSome(vec![template_id.clone()]),
+        ),
+    )?? {
+        metadata
+    } else {
+        return Err(StringFromErr(
+            "Invalid file type (Metadata was not that of File)".into(),
+        ));
+    };
+    // If the file has property groups and there is at least one (assumed to be the OPMTemplate)
+    // Instead of updating a pre-existing property group, create a new property group with the assigned values
+    match file.property_groups.map(|s| s.is_empty()) {
+        Some(true) | None => {
+            file_properties::properties_add(
+                &auth_info.client,
+                &file_properties::AddPropertiesArg::new(
+                    target,
+                    vec![file_properties::PropertyGroup::new(template_id, properties)],
+                ),
+            )??;
+            return Ok(());
+        }
+        _ => {}
+    }
+
+    //if the file does not have any property groups
+
+    file_properties::properties_update(
+        &auth_info.client,
+        &file_properties::UpdatePropertiesArg::new(
             target,
-            vec![file_properties::PropertyGroup::new(template_id, properties)],
+            vec![file_properties::PropertyGroupUpdate::new(template_id)
+                .with_add_or_update_fields(properties)],
         ),
     )??;
 
@@ -218,11 +276,17 @@ fn set_file_properties(
 }
 
 #[tauri::command]
-fn download_file(
+fn export_folder(
     auth: tauri::State<Mutex<AuthState>>,
-    target_path: String,
+    app_info: tauri::State<Mutex<AppInfo>>,
+    export_path: String,
+    file_paths: Vec<String>,
 ) -> Result<(), StringFromErr> {
+    use dropbox_sdk::file_properties;
     use dropbox_sdk::files;
+    use std::collections::HashMap;
+
+    let mut file_list: Vec<HashMap<String, String>> = Vec::new();
 
     let guard = auth.lock().unwrap();
     let auth_info = if let AuthState::Authenticated(info) = &*guard {
@@ -231,25 +295,73 @@ fn download_file(
         return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
     };
 
-    let request_result = files::export(
-        &auth_info.client,
-        &files::ExportArg::new(target_path),
-        None,
-        None,
-    )??;
+    let guard = app_info.lock().unwrap();
+    let template_id = guard
+        .template_id
+        .as_ref()
+        .ok_or_else(|| {
+            StringFromErr(
+                "There was an error accessing the template id (template id not initialized)".into(),
+            )
+        })?
+        .clone();
 
-    let mut body = request_result.body.ok_or_else(|| {
-        StringFromErr(
-            "There was no body returned in the HTMLRequest (HTMLRequest Error: no body)".into(),
-        )
-    })?;
+    for path in file_paths {
+        let request_result = files::export(
+            &auth_info.client,
+            &files::ExportArg::new(path.clone()),
+            None,
+            None,
+        )??;
 
-    let data = request_result.result.file_metadata;
-    let mut file_content: String = String::new();
+        let mut body = request_result.body.ok_or_else(|| {
+            StringFromErr(
+                "There was no body returned in the HTMLRequest (HTMLRequest Error: no body)".into(),
+            )
+        })?;
 
-    body.read_to_string(&mut file_content)?;
+        let data = if let files::Metadata::File(metadata) = files::get_metadata(
+            &auth_info.client,
+            &files::GetMetadataArg::new(path).with_include_property_groups(
+                file_properties::TemplateFilterBase::FilterSome(vec![template_id.clone()]),
+            ),
+        )?? {
+            metadata
+        } else {
+            return Err(StringFromErr(
+                "Invalid file type (Metadata was not that of File)".into(),
+            ));
+        };
+        let mut file_content: String = String::new();
 
-    fs::write(["./", data.name.as_str()].concat(), file_content)?;
+        body.read_to_string(&mut file_content)?;
+
+        let mut file: HashMap<String, String> = HashMap::new();
+
+        match data.property_groups {
+            Some(groups) => {
+                let properties = &groups[0].fields;
+                for prop in properties {
+                    file.insert(prop.name.clone(), prop.value.clone());
+                }
+            }
+            None => {}
+        }
+
+        let path = [&export_path, "/", &data.name].concat();
+
+        file.insert("path".into(), path.clone()); //insert the file's path as a property
+
+        file_list.push(file);
+
+        fs::write(path, file_content)?; //Write the file to the designated folder
+    }
+
+    let data = FileMetadata { data: file_list };
+    fs::write(
+        [&export_path, "\\metadata.json"].concat(),
+        serde_json::to_string(&data)?,
+    )?; //Write the metadata file
 
     Ok(())
 }
@@ -272,8 +384,9 @@ fn main() {
             finalize_auth,
             upsert_template,
             list_base_dir,
+            set_file_properties,
             list_target_dir,
-            download_file,
+            export_folder,
         ])
         .run(context)
         .expect("error while running tauri application");

@@ -1,8 +1,9 @@
-import { useState, useEffect, SetStateAction } from 'react'
+import { useState, useEffect, SetStateAction, Children, PropsWithChildren } from 'react'
 import logo from './logo.svg'
 import './App.css'
 import { invoke } from '@tauri-apps/api'
-
+import template from './template.json'
+import { exportPath } from './config.json'
 
 const Pages = {
   AuthPage: 'AuthPage',
@@ -20,7 +21,7 @@ const AuthPage = (props: BaseParams) => {
   //We need to wrap this in useEffect so it only happens on first render, otherwise, on state change, react would rerender again and loop
   useEffect(() => {
     invoke('get_auth_url').then((url) => {
-      setAuthUrl(String(url));
+      setAuthUrl(url as string);
     })
   }, []);
 
@@ -61,7 +62,7 @@ interface FileType {
   client_modified: string,
   id: string,
   name: string,
-  property_groups: Array<any>, //TODO: Determine the type of the property groups (or if it even is an array)
+  property_groups: Array<PropertyGroup>, //TODO: Determine the type of the property groups (or if it even is an array)
   path_display: string,
   path_lower: string,
   size: number,
@@ -72,13 +73,50 @@ interface FolderType {
   name: string,
   path_display: string,
   path_lower: string,
-  property_groups: Array<any>, //TODO: Determine the type of the property groups (or if it even is an array)
+  property_groups: Array<TemplateType>, //TODO: Determine the type of the property groups (or if it even is an array)
 }
+
+interface FieldType {
+  name: string,
+  description: string,
+  type: { ".tag": string },
+}
+interface TemplateType {
+  name: string,
+  description: string,
+  fields: Array<FieldType>,
+}
+interface PropertyField {
+  name: string,
+  value: string,
+}
+interface PropertyGroup {
+  template_id: string,
+  fields: Array<PropertyField>
+}
+
+
+function checkForExistingValue(File: FileType, value: string): string | null {
+  if (File.property_groups != null) {
+    let properties: PropertyGroup = File.property_groups[0];
+    if (properties != null) {
+      let field: PropertyField | undefined = properties.fields.find((field) => { return field.name === value });
+      if (field) {
+        return field.value;
+      }
+    }
+  }
+  return null;
+}
+
 const MainPage = (props: BaseParams) => {
 
   const defaultDirectory: string = ""; //TODO: implement way for user to set default directory
+  const [selectedFile, setSelectedFile] = useState<FileType | null>(null); //The selected file name
   const [baseDir, setBaseDir] = useState(defaultDirectory);
   const [baseDirFileData, setBaseDirData] = useState<Array<FolderType | FileType> | null>(null);
+
+  let exportFilePaths: Array<string> = [];
 
   useEffect(() => {
     invoke('upsert_template').catch((err) => console.error(err));
@@ -86,8 +124,10 @@ const MainPage = (props: BaseParams) => {
   }, []);
 
   function listSubfiles(target: string) {
+    exportFilePaths = [];
     setBaseDir(target);
     setBaseDirData(null);
+    setSelectedFile(null);
     invoke('list_target_dir', { target }).then((result) => {
 
       let data = result as Array<FolderType | FileType>;
@@ -97,53 +137,114 @@ const MainPage = (props: BaseParams) => {
     }).catch((err) => console.error(err));
   }
 
+  function refreshFolder() {
+
+    invoke('list_target_dir', { target: baseDir }).then((result) => {
+
+      let data = result as Array<FolderType | FileType>;
+
+      setBaseDirData(data);
+
+    }).catch((err) => console.error(err));
+  }
 
   return (
-    < div className='text-white'>
+    < div className='flex h-[100vh] flex-col text-white'>
       <div className='text-[2vw] font-bold font-lg px-52 pt-52'>
         <h1>Dropbox Documents</h1>
       </div>
       <div className='break py-20' />
-      <div className='flex'>
-        <div className='List of Files py-10 pl-5 bg-slate-900 w-80 h-[50vh] overflow-y-auto whitespace-nowrap noScrollBar'>
-          <div className='PathList flex overflow-x-auto'>
-            📂
-            <p className="px-2 cursor-pointer underline" onClick={() => {
-              listSubfiles(defaultDirectory);
-            }}>
-              Dropbox
-            </p>
+      <div className='flex flex-auto overflow-y-hidden'>
+        <div className="FileListAndButton flex flex-col">
+          <div className='List of Files flex-col py-10 h-[100%] pl-5 bg-slate-900 w-80 overflow-y-auto whitespace-nowrap noScrollBar'>
+            <div className='PathList flex overflow-x-auto'>
+              📂
+              <p className="px-2 cursor-pointer underline" onClick={() => {
+                listSubfiles(defaultDirectory);
+              }}>
+                Dropbox
+              </p>
+              {
+                baseDir.split('/').map((element) => {
+                  if (element == "") return; //the first element can be empty
+                  return (
+                    <div className='flex'>
+                      <p>/</p>
+                      <p className="px-2 cursor-pointer underline" onClick={() => {
+                        listSubfiles(baseDir.substring(0, baseDir.indexOf("/" + element) + ("/" + element).length))
+                      }}>
+                        {element}
+                      </p>
+                    </div>
+                  )
+                })
+              }
+            </div>
             {
-              baseDir.split('/').map((element) => {
-                if (element == "") return; //the first element can be empty
-                return (
-                  <div className='flex'>
-                    <p>/</p>
-                    <p className="px-2 cursor-pointer underline" onClick={() => {
-                      listSubfiles(baseDir.substring(0, baseDir.indexOf("/" + element) + ("/" + element).length))
-                    }}>
-                      {element}
-                    </p>
-                  </div>
-                )
+              baseDirFileData?.map((datum) => {
+                if (datum['.tag'] === "file" && datum.name.endsWith('.paper')) {
+                  exportFilePaths.push(datum.path_lower);
+                  return <FileComponent key={datum.path_lower} file={datum as FileType} setFile={setSelectedFile} />
+                }
+                else if (datum['.tag'] === "folder") {
+                  return <FolderComponent key={datum.path_lower} folder={datum as FolderType} callList={listSubfiles} />
+                }
               })
             }
           </div>
-          {
-            baseDirFileData?.map((datum) => {
-              if (datum['.tag'] === "file" && datum.name.endsWith('.paper')) {
-                return <FileComponent file={datum as FileType} />
-              }
-              else if (datum['.tag'] === "folder") {
-                return <FolderComponent folder={datum as FolderType} callList={listSubfiles} />
-              }
-            })
-          }
+          <button className="bg-purple-500 mt-10 px-2 rounded-md h-5 mb-10 flex-grow-0 self-center" onClick={() => {
+            invoke('export_folder', { exportPath: exportPath, filePaths: exportFilePaths }).catch((err) => console.error(err)); //TODO: implement way for user to specify their target directory when exporting
+          }}>
+            Export Folder
+          </button>
         </div>
+        <PropertiesViewer selectedFile={selectedFile} refresh={refreshFolder} />
       </div>
-    </div>
+    </div >
   )
 };
+
+const PropertiesViewer = (props: { selectedFile: FileType | null, refresh: Function }) => {
+
+  const [propertyValues, setPropertyValues] = useState(new Map(template.fields.map(({ name }) => [name, propogateProp(name)])));
+
+  function propogateProp(name: string): string {
+    if (props.selectedFile != null && props.selectedFile.property_groups != null && props.selectedFile.property_groups[0] != null) {
+      return (props.selectedFile.property_groups[0].fields.find((field) => { return field.name == name }) as PropertyField).value;
+    }
+    return "";
+  }
+
+  return (
+    <div className="Properties Viewer bg-zinc-700 w-fit flex-1 pt-3 flex flex-col justify-start items-center overflow-x-hidden overflow-y-auto">
+
+      {props.selectedFile != null ? props.selectedFile.name : ""}
+
+      {props.selectedFile != null ? template.fields.map((field) => {
+        let existingValue = checkForExistingValue(props.selectedFile as FileType, field.name);
+        return <TemplateFieldComponent key={props.selectedFile!.name + ":" + field.name} field={field as FieldType} existingValue={existingValue} setPropertyValues={setPropertyValues} />;
+      })
+        :
+        ("Select a file to view it's properties")
+      }
+
+      {props.selectedFile != null ?
+        <button className="bg-purple-500 mt-10 px-2 py-5 content-center text-center place-content-center rounded-md h-5 mb-10"
+          onClick={() => {
+            let properties: Array<PropertyField> = Array<PropertyField>();
+            propertyValues.forEach((value, key) => {
+              properties.push({ name: key, value });
+            })
+            invoke('set_file_properties', { target: props.selectedFile?.path_lower, properties: properties }).then(() => { props.refresh() }).catch((err) => { console.error(err) });
+          }}
+        >
+          Apply properties
+        </button>
+        : ""}
+
+    </div >
+  )
+}
 
 const ErrorPage = () => {
   return (
@@ -152,12 +253,15 @@ const ErrorPage = () => {
 }
 
 //The 'bottom level' component that actually contains a single dropbox file's information
-const FileComponent = (props: { file: FileType }) => {
+const FileComponent = (props: { file: FileType, setFile: React.Dispatch<SetStateAction<FileType | null>> }) => {
+
+
 
   return (
     <div className='FileComponent cursor-pointer overflow-ellipsis overflow-hidden underline hover:bg-slate-800 focus:bg-slate-700'
-
-    >
+      onClick={() => {
+        props.setFile(props.file);
+      }}>
       <img />
       📄{props.file.name}
     </div>
@@ -172,6 +276,22 @@ const FolderComponent = (props: { folder: FolderType, callList: Function }) => {
     <div className='FolderComponent flex overflow-ellipsis overflow-hidden hover:bg-slate-800 focus:bg-slate-700 cursor-pointer' onDoubleClick={() => props.callList(props.folder.path_lower)}>
       📁
       {props.folder.name}
+    </div>
+  )
+
+}
+
+
+const TemplateFieldComponent = (props: { field: FieldType, existingValue: string | null, setPropertyValues: React.Dispatch<SetStateAction<Map<string, string>>> }) => {
+
+  return (
+    <div className='TemplateFieldComponent my-5'>
+      {props.field.name + ": "}
+      <input className="px-2 text-black" placeholder={"Value not set"} defaultValue={props.existingValue ? props.existingValue : ""}
+        onChange={(event) => {
+          props.setPropertyValues((prev) => new Map(prev).set(props.field.name, event.target.value));
+        }}
+      />
     </div>
   )
 
