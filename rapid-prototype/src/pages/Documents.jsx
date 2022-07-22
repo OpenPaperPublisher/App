@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Table from "../components/Table";
+import Drawer from "../components/Drawer";
 
 const fakeDocumentApiResponse = async (folderId) => {
   return {
@@ -14,6 +15,7 @@ const fakeDocumentApiResponse = async (folderId) => {
 
 const Documents = ({ breadcrumbs, dispatch, folderId }) => {
   const [documents, setDocuments] = useState([]);
+  const [isDrawerShowing, setDrawerShowing] = useState(false);
 
   useEffect(() => {
     fakeDocumentApiResponse(folderId).then(({ documents }) =>
@@ -35,7 +37,7 @@ const Documents = ({ breadcrumbs, dispatch, folderId }) => {
                 <div
                   className="cursor-pointer"
                   onClick={() => {
-                    console.log("drawer...");
+                    setDrawerShowing(!isDrawerShowing);
                   }}
                 >
                   {name}
@@ -45,6 +47,7 @@ const Documents = ({ breadcrumbs, dispatch, folderId }) => {
           </tr>
         ))}
       </Table>
+      <Drawer show={isDrawerShowing} />
     </div>
   );
 };
