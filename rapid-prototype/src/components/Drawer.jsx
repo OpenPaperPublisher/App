@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { useSpring, animated } from "react-spring";
 
+const fakeDocuments = [
+  { name: "Document 1", id: "1", metadata: { status: "Draft" } },
+  { name: "Document 2", id: "2", metadata: { status: "Published" } },
+  { name: "Document 3", id: "3", metadata: { status: "Published" } }
+];
+
 const fakeSingleMetadataApiResponse = async (documentId) => {
-  return {
-    id: documentId,
-    title: "Document Title",
-    metadata: { published: "Draft" }
-  };
+  const [document] = fakeDocuments.filter(({ id }) => documentId === id);
+  return { document };
 };
 
-const Drawer = ({ show, documentId }) => {
+const Drawer = ({ show, documentId, setActiveDocumentId }) => {
   const props = useSpring({
     left: show ? window.innerWidth - 500 : window.innerWidth,
     position: "absolute",
@@ -21,9 +24,10 @@ const Drawer = ({ show, documentId }) => {
   const [document, setDocument] = useState(null);
 
   useEffect(() => {
+    if (documentId === null) return;
     fakeSingleMetadataApiResponse(documentId).then(
-      ({ id, title, metadata }) => {
-        setDocument({ id, title, metadata });
+      ({ document: { id, name, metadata } }) => {
+        setDocument({ id, name, metadata });
       }
     );
   }, [documentId]);
@@ -33,7 +37,11 @@ const Drawer = ({ show, documentId }) => {
       style={props}
       className="bg-white border-l-2 border-gray-200 p-4"
     >
-      {document && <h3>{document["title"]}</h3>}
+      <div className="cursor-pointer" onClick={() => setActiveDocumentId(null)}>
+        Close
+      </div>
+      {document && <h3>{document["name"]}</h3>}
+      {document && <p>{document["status"]}</p>}
     </animated.div>
   );
 };
