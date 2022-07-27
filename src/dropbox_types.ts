@@ -1,5 +1,5 @@
 export interface File {
-    '.tag': string,
+    '.tag': "file",
     client_modified: string,
     id: string,
     name: string,
@@ -9,7 +9,7 @@ export interface File {
     size: number,
 }
 export interface Folder {
-    '.tag': string,
+    '.tag': "folder",
     id: string,
     name: string,
     path_display: string,
