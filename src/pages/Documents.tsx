@@ -1,27 +1,25 @@
 import React, { useEffect, useState } from "react";
+import { invoke } from '@tauri-apps/api'
 import Breadcrumbs from "./components/Breadcrumbs";
 import Table from "./components/Table";
 import Drawer from "./components/Drawer";
 import PublishDrawer from "./components/PublishDrawer";
+import { File, Folder } from "../dropbox_types";
 
-const fakeDocumentsApiResponse = async (folderPath: any) => {
-    return {
-        documents: [
-            { name: "Document 1", id: "1", status: "draft" },
-            { name: "Document 2", id: "2", status: "published" },
-            { name: "Document 3", id: "3", status: "published" }
-        ]
-    };
+const listFiles = async (folderPath: String): Promise<File[]> => {
+    let metadata = await invoke('list_target_dir', { target: "" })
+    let list: File[] = (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "file" }) as File[];
+    return list;
 };
 
 const Documents = ({ breadcrumbs, dispatch, folderPath }: any) => {
-    const [documents, setDocuments] = useState([]);
-    const [activeDocumentId, setActiveDocumentId] = useState(null);
+    const [documents, setDocuments] = useState<File[]>([]);
+    const [activeDocumentId, setActiveDocumentId] = useState<String | null>(null);
     const [publishDrawOpen, togglePublishDrawer] = useState(false);
 
     useEffect(() => {
-        fakeDocumentsApiResponse(folderPath).then(({ documents }) =>
-            setDocuments(documents as any)
+        listFiles(folderPath).then((documents) =>
+            setDocuments(documents)
         );
     }, [folderPath]);
 
