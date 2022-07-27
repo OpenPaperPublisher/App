@@ -1,95 +1,100 @@
-import { useState, useEffect } from 'react'
-import logo from './logo.svg'
-import './App.css'
-import { invoke } from '@tauri-apps/api'
+import { Dispatch, useReducer } from "react";
+import { Pages } from "./constants";
+import Home from "./pages/Home";
+import Folders from "./pages/Folders";
+import Documents from "./pages/Documents";
 
-
-const Pages = {
-  AuthPage: 'AuthPage',
-  MainPage: 'MainPage',
-  ErrorPage: 'ErrorPage',
-}
-
-interface BaseParams {
-  setState: (state: string) => void,
-}
-const AuthPage = (props: BaseParams) => {
-
-  const [authUrl, setAuthUrl] = useState("");
-
-  //We need to wrap this in useEffect so it only happens on first render, otherwise, on state change, react would rerender again and loop
-  useEffect(() => {
-    invoke('get_auth_url').then((url) => {
-      setAuthUrl(String(url));
-    })
-  }, []);
-
-
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          <a
-            id="auth_url"
-            className='auth_url'
-            href={authUrl}
-            target="_blank"
-          >
-            Obtain Auth Key
-          </a>
-        </p>
-        <p>
-          <input type='text' id="auth-code" placeholder='Paste authentication code here' />
-          <button onClick={() => {
-            const code: string = (document.getElementById("auth-code") as HTMLInputElement).value;
-            invoke('finalize_auth', { code })
-              .catch((err) => console.error(err))
-              .then(() => props.setState(Pages.MainPage));
-          }}>Submit</button>
-        </p>
-        <p>
-          Edit <code>App.tsx</code> and save to test HMR updates.
-        </p>
-      </header>
-    </div >
-  )
-};
-
-const MainPage = (props: BaseParams) => {
-
-  useEffect(() => {
-    invoke('upsert_template').catch((err) => { console.error(err) });
-  }, []);
-
-  return (
-    < div className="App" >
-      <div className='nav'>
-      </div>
-    </div>
-  )
-};
-
-const ErrorPage = () => {
-  return (
-    <div>Error, this page occurs when the app attemps to swap to a page that doesn't exist. Please open an issue if you ever see this page</div>
-  )
-}
-
-function App() {
-
-  const [state, setState] = useState(Pages.AuthPage);
-
-  //depending on the state of the app (set through an enum, the app will display a specific page)
-  switch (state) {
-    case Pages.AuthPage:
-      return <AuthPage setState={setState} />;
-    case Pages.MainPage:
-      return <MainPage setState={setState} />;
-    default:
-      return <ErrorPage />
+type Crumb =
+  | {
+    page: Pages,
+    name: string,
+  }
+  | {
+    name: string,
+  }
+type State =
+  | {
+    type: Pages.PAGE_FOLDERS,
+    Component: typeof Folders,
+    breadcrumbs: Crumb[],
+  }
+  | {
+    type: Pages.PAGE_DOCUMENTS,
+    Component: typeof Documents,
+    folderPath: string,
+    breadcrumbs: Crumb[],
+  }
+  | {
+    type: Pages.PAGE_HOME,
+    Component: typeof Home,
   }
 
-}
+type Action =
+  | { type: Pages.PAGE_FOLDERS }
+  | { type: Pages.PAGE_DOCUMENTS; folderPath: string; }
+  | { type: Pages.PAGE_HOME }
 
-export default App
+
+const initialState: State = {
+  type: Pages.PAGE_HOME,
+  Component: Home,
+};
+
+
+const homeCrumb: Crumb = { page: Pages.PAGE_HOME, name: "Home" };
+
+
+const reducer = (state: State, action: Action): State => {
+  switch (action.type) {
+    case Pages.PAGE_HOME:
+      return { ...state, type: Pages.PAGE_HOME, Component: Home };
+    case Pages.PAGE_FOLDERS:
+      return {
+        ...state,
+        type: Pages.PAGE_FOLDERS,
+        Component: Folders,
+        breadcrumbs: [homeCrumb, { name: "Folders" }]
+      };
+    case Pages.PAGE_DOCUMENTS:
+      return {
+        ...state,
+        type: Pages.PAGE_DOCUMENTS,
+        Component: Documents,
+        folderPath: action.folderPath,
+        breadcrumbs: [
+          homeCrumb,
+          { page: Pages.PAGE_FOLDERS, name: "Folders" },
+          { name: "Documents" }
+        ]
+      };
+    default:
+      throw new Error();
+  }
+};
+
+const App = () => {
+  const [state, dispatch]: [State, Dispatch<Action>] = useReducer(reducer, initialState);
+  const { Component }: any = state; // Cast to any but this is safe
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1 h-full">
+        <div className="container mx-auto">
+          <header className="p-2">
+            <h1 className="text-3xl font-semibold text-gray-800">
+              Open Paper Publisher
+            </h1>
+          </header>
+          <Component dispatch={dispatch} {...state} />
+        </div>
+      </main>
+      <footer className="p-2">
+        <a href="https://github.com/OpenPaperPublisher" target="_blank">
+          Git Repo
+        </a>
+      </footer>
+    </div>
+  );
+};
+
+export default App;
