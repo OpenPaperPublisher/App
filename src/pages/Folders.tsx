@@ -1,25 +1,23 @@
 import React, { useEffect, useState } from "react";
+import { invoke } from '@tauri-apps/api'
 import Breadcrumbs from "./components/Breadcrumbs";
 import Table from "./components/Table";
 import { Pages } from "../constants";
+import { File, Folder } from "../dropbox_types";
 
 const PAGE_DOCUMENTS = Pages.PAGE_DOCUMENTS;
 
-const fakeFolderApiResponse = async () => {
-    return {
-        folders: [
-            { name: "Folder A", id: "A" },
-            { name: "Folder B", id: "B" },
-            { name: "Folder C", id: "C" }
-        ]
-    };
+const listFolder = async (): Promise<Folder[]> => {
+    let metadata = await invoke('list_target_dir', { target: "" })
+    let list: Folder[] = (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "folder" }) as Folder[];
+    return list;
 };
 
 const Folders = ({ breadcrumbs, dispatch }: any) => {
-    const [folders, setFolders] = useState([]);
+    const [folders, setFolders] = useState<Folder[]>([]);
 
     useEffect(() => {
-        fakeFolderApiResponse().then(({ folders }) => setFolders(folders as any));
+        listFolder().then((folders) => setFolders(folders));
     }, []);
 
     return (
