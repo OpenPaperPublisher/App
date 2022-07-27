@@ -258,7 +258,7 @@ fn export_folder(
     auth: tauri::State<Mutex<AuthState>>,
     app_info: tauri::State<Mutex<AppInfo>>,
     export_path: String,
-    file_paths: Vec<String>,
+    folder_path: String,
 ) -> Result<(), StringFromErr> {
     use dropbox_sdk::file_properties;
     use dropbox_sdk::files;
@@ -284,7 +284,25 @@ fn export_folder(
         })?
         .clone();
 
-    for path in file_paths {
+    let files: Vec<files::FileMetadata> =
+        list_target_dir(auth.clone(), app_info.clone(), folder_path)?
+            .iter()
+            .flat_map(|file| {
+                let mut is_file = None;
+                if let files::Metadata::File(file_data) = file {
+                    if file_data.name.ends_with(".paper") {
+                        is_file = Some(file_data.clone());
+                    }
+                }
+                is_file
+            })
+            .collect();
+
+    for file in files {
+        let path = match &file.path_lower {
+            Some(file_path) => file_path.clone(),
+            None => continue,
+        };
         let request_result = files::export(
             &auth_info.client,
             &files::ExportArg::new(path.clone()),
