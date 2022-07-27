@@ -9,8 +9,7 @@ const PAGE_DOCUMENTS = Pages.PAGE_DOCUMENTS;
 
 const listFolder = async (): Promise<Folder[]> => {
     let metadata = await invoke('list_target_dir', { target: "" })
-    let list: Folder[] = (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "folder" }) as Folder[];
-    return list;
+    return (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "folder" }) as Folder[];
 };
 
 const Folders = ({ breadcrumbs, dispatch }: any) => {

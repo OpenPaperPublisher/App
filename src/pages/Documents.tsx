@@ -8,8 +8,7 @@ import { File, Folder } from "../dropbox_types";
 
 const listFiles = async (folderPath: String): Promise<File[]> => {
     let metadata = await invoke('list_target_dir', { target: "" })
-    let list: File[] = (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "file" }) as File[];
-    return list;
+    return (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "file" }) as File[];
 };
 
 const Documents = ({ breadcrumbs, dispatch, folderPath }: any) => {
