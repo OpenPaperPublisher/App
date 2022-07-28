@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSpring, animated } from "react-spring";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
+import DatePicker from "react-datepicker";
+
+const inputClasses =
+  "block w-full px-4 py-2 mt-2 text-gray-700 bg-white border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-300 focus:ring-opacity-40 focus:outline-none focus:ring";
 
 const fakeDocuments = [
   { name: "Document 1", id: "1", metadata: { status: "draft", author: "Tom" } },
@@ -26,7 +30,7 @@ const fakeSaveMetadata = async (metadata) => {
 };
 
 const Drawer = ({ show, documentId, setActiveDocumentId }) => {
-  const { register, handleSubmit } = useForm({
+  const { register, handleSubmit, control } = useForm({
     defaultValues: {
       status: "draft"
     }
@@ -54,10 +58,14 @@ const Drawer = ({ show, documentId, setActiveDocumentId }) => {
         document: {
           id,
           name,
-          metadata: { author }
+          metadata: { author, status, categories, publish_date }
         }
       }) => {
-        setDocument({ id, name, metadata: { author } });
+        setDocument({
+          id,
+          name,
+          metadata: { author, status, categories, publish_date }
+        });
       }
     );
   }, [documentId]);
@@ -67,13 +75,33 @@ const Drawer = ({ show, documentId, setActiveDocumentId }) => {
       style={props}
       className="bg-white border-l-2 border-gray-200 p-4"
     >
-      <div className="cursor-pointer" onClick={() => setActiveDocumentId(null)}>
-        Close
+      <div className="flex">
+        {document && (
+          <h3 className="grow text-2xl font-bold text-gray-800">
+            {document["name"]}
+          </h3>
+        )}
+        <div
+          className="shrink-0 cursor-pointer"
+          onClick={() => setActiveDocumentId(null)}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </div>
       </div>
-      {document && (
-        <h3 className="text-2xl font-bold text-gray-800">{document["name"]}</h3>
-      )}
-      <form className="mt-10" onSubmit={handleSubmit(onSubmit)}>
+      <form className="mt-10 pr-4" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <label for="author" className="text-gray-700">
             Author
@@ -81,13 +109,100 @@ const Drawer = ({ show, documentId, setActiveDocumentId }) => {
           <input
             id="author"
             type="text"
-            className="block w-full px-4 py-2 mt-2 text-gray-700 bg-white border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-300 focus:ring-opacity-40 focus:outline-none focus:ring"
+            className={inputClasses}
             {...register("author")}
-            defaultValue={
+            value={
               document && document.metadata ? document.metadata.author : null
             }
           />
         </div>
+
+        <div className="mt-4">
+          <label for="status" className="text-gray-700">
+            Status
+          </label>
+          <select
+            id="status"
+            className={inputClasses}
+            {...register("status", { required: true })}
+            value={
+              document && document.metadata ? document.metadata.status : null
+            }
+          >
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+        </div>
+
+        <div className="mt-4">
+          <label for="status" className="text-gray-700">
+            Publish Date
+          </label>
+          <Controller
+            control={control}
+            name="publish_date"
+            render={({ field }) => (
+              <DatePicker
+                placeholderText="Select date"
+                onChange={(date) => field.onChange(date)}
+                className={inputClasses}
+                selected={
+                  document && document.metadata
+                    ? document.metadata.publish_date
+                    : null
+                }
+              />
+            )}
+          />
+        </div>
+
+        <div className="mt-4">
+          <label for="categories" className="text-gray-700">
+            Categories (one per line)
+          </label>
+          <textarea
+            id="categories"
+            className={inputClasses}
+            {...register("categories")}
+            value={
+              document && document.metadata
+                ? document.metadata.categories
+                : null
+            }
+          />
+        </div>
+
+        <div className="mt-4">
+          <label for="tags" className="text-gray-700">
+            Tags (one per line)
+          </label>
+          <textarea
+            id="tags"
+            className={inputClasses}
+            {...register("tags")}
+            value={
+              document && document.metadata
+                ? document.metadata.categories
+                : null
+            }
+          />
+        </div>
+
+        <div className="mt-4">
+          <label for="template" className="text-gray-700">
+            Display Template
+          </label>
+          <input
+            id="template"
+            type="text"
+            className={inputClasses}
+            {...register("template")}
+            value={
+              document && document.metadata ? document.metadata.template : null
+            }
+          />
+        </div>
+
         <input
           type="submit"
           value="Update Metadata"
