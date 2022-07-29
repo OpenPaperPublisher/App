@@ -284,7 +284,7 @@ fn export_folder(
         })?
         .clone();
 
-    let files = list_files_in_dir(auth.clone(), app_info.clone(), folder_path)?;
+    let files = backend_list_files_in_dir(&auth_info.client, template_id.clone(), folder_path)?;
 
     for file in files {
         let path = match &file.path_lower {
@@ -358,9 +358,6 @@ fn list_files_in_dir(
     app_info: tauri::State<Mutex<AppInfo>>,
     target: String,
 ) -> Result<Vec<dropbox_sdk::files::FileMetadata>, StringFromErr> {
-    use dropbox_sdk::file_properties;
-    use dropbox_sdk::files;
-
     let guard = auth.lock().unwrap();
     let info = if let AuthState::Authenticated(info) = &*guard {
         info
@@ -379,24 +376,7 @@ fn list_files_in_dir(
         })?
         .clone();
 
-    let data: Vec<files::FileMetadata> = files::list_folder(
-        &info.client,
-        &files::ListFolderArg::new(target).with_include_property_groups(
-            file_properties::TemplateFilterBase::FilterSome(vec![template_id]),
-        ),
-    )??
-    .entries
-    .iter()
-    .flat_map(|file| {
-        let mut is_file = None;
-        if let files::Metadata::File(file_data) = file {
-            if file_data.name.ends_with(".paper") {
-                is_file = Some(file_data.clone());
-            }
-        }
-        is_file
-    })
-    .collect();
+    let data = backend_list_files_in_dir(&info.client, template_id, target)?;
 
     Ok(data)
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
@@ -430,7 +410,7 @@ fn list_folders_in_dir(
         })?
         .clone();
 
-    let data: Vec<files::FolderMetadata> = files::list_folder(
+    let data = files::list_folder(
         &info.client,
         &files::ListFolderArg::new(target).with_include_property_groups(
             file_properties::TemplateFilterBase::FilterSome(vec![template_id]),
@@ -444,6 +424,37 @@ fn list_folders_in_dir(
             is_folder = Some(folder_data.clone());
         }
         is_folder
+    })
+    .collect();
+
+    Ok(data)
+    //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
+}
+
+fn backend_list_files_in_dir(
+    client: &impl dropbox_sdk::client_trait::UserAuthClient,
+    template_id: String,
+    target: String,
+) -> Result<Vec<dropbox_sdk::files::FileMetadata>, StringFromErr> {
+    use dropbox_sdk::file_properties;
+    use dropbox_sdk::files;
+
+    let data = files::list_folder(
+        client,
+        &files::ListFolderArg::new(target).with_include_property_groups(
+            file_properties::TemplateFilterBase::FilterSome(vec![template_id]),
+        ),
+    )??
+    .entries
+    .iter()
+    .flat_map(|file| {
+        let mut is_file = None;
+        if let files::Metadata::File(file_data) = file {
+            if file_data.name.ends_with(".paper") {
+                is_file = Some(file_data.clone());
+            }
+        }
+        is_file
     })
     .collect();
 
