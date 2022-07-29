@@ -332,9 +332,11 @@ fn export_folder(
 
         match data.property_groups {
             Some(groups) => {
-                let properties = &groups[0].fields;
-                for prop in properties {
-                    file.insert(prop.name.clone(), prop.value.clone());
+                if !groups.is_empty() {
+                    let properties = &groups[0].fields;
+                    for prop in properties {
+                        file.insert(prop.name.clone(), prop.value.clone());
+                    }
                 }
             }
             None => {}
