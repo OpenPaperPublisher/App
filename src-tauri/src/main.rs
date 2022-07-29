@@ -183,6 +183,7 @@ fn list_target_dir(
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
 }
 
+// Takes in a target and a list of file properties (hopefully matching the schema denoted in template.json) and upserts file properties accordingly
 #[tauri::command]
 fn set_file_properties(
     auth: tauri::State<Mutex<AuthState>>,
