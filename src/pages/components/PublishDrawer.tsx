@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useSpring, animated } from "react-spring";
+import { invoke } from '@tauri-apps/api';
+import { open } from '@tauri-apps/api/dialog';
 
-const fakeWriteDocumentsResponse = async (folderId: any, path: any) => {
-    return { status: "ok" };
-};
-
-const PublishDrawer = ({ show, folderId, togglePublishDrawer }: any) => {
+const PublishDrawer = ({ show, folderPath, togglePublishDrawer }: any) => {
     const props = useSpring({
         left: show ? window.innerWidth - 500 : window.innerWidth,
         position: "absolute",
@@ -14,7 +12,7 @@ const PublishDrawer = ({ show, folderId, togglePublishDrawer }: any) => {
         width: "500px"
     });
 
-    const [path, setPath] = useState(null);
+    const [path, setPath] = useState<String | null>(null);
 
     return (
         <animated.div
@@ -29,14 +27,22 @@ const PublishDrawer = ({ show, folderId, togglePublishDrawer }: any) => {
             </div>
             <form className="mt-4">
                 <div>
-                    <label className="block">Choose a local folder</label>
-                    <input type="file" name="path" />
+                    <input type="button" className="hover:cursor-pointer" value="Select Local Folder" onClick={() => {
+                        open({ directory: true }).then((result) => {
+                            if (result) {
+                                setPath(result as string);
+                            }
+                        })
+                    }} />
+                    <br></br>
+                    {path ? <text>Selected Path: {path}</text> : null}
                 </div>
                 <div>
                     <button
                         className="mt-4 text-sm px-2 py-1 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80"
                         onClick={() => {
-                            fakeWriteDocumentsResponse(folderId, path).then(({ status }) => {
+                            if (!path) return;
+                            invoke("export_folder", { folderPath, exportPath: path }).then((status) => {
                                 console.log(status);
                             });
                         }}
@@ -45,7 +51,7 @@ const PublishDrawer = ({ show, folderId, togglePublishDrawer }: any) => {
                     </button>
                 </div>
             </form>
-        </animated.div>
+        </animated.div >
     );
 };
 
