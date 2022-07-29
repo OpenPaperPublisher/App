@@ -1,44 +1,41 @@
-import { useEffect, useState } from "react";
 import { useSpring, animated } from "react-spring";
+import { invoke } from '@tauri-apps/api'
 import { useForm, Controller } from "react-hook-form";
+import { OPMproperties, File, Property } from '../../dropbox_types';
 import DatePicker from "react-datepicker";
 
 const inputClasses =
     "block w-full px-4 py-2 mt-2 text-gray-700 bg-white border border-gray-200 rounded-md focus:border-blue-400 focus:ring-blue-300 focus:ring-opacity-40 focus:outline-none focus:ring";
 
-const fakeDocuments = [
-    { name: "Document 1", id: "1", metadata: { status: "draft", author: "Tom" } },
-    {
-        name: "Document 2",
-        id: "2",
-        metadata: { status: "published", author: "Fred" }
-    },
-    {
-        name: "Document 3",
-        id: "3",
-        metadata: { status: "published", author: "Jane" }
-    }
-];
+// const fakeSingleMetadataApiResponse = async (documentPath: any) => {
+//     const [document] = fakeDocuments.filter(({ id }) => documentPath === id);
+//     return { document };
+// };
 
-const fakeSingleMetadataApiResponse = async (documentId) => {
-    const [document] = fakeDocuments.filter(({ id }) => documentId === id);
-    return { document };
-};
-
-const fakeSaveMetadata = async (metadata) => {
-    return { status: "ok" };
-};
-
-const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
-    const { register, handleSubmit, control } = useForm({
+const Drawer = ({ show, document, setActiveDocument }: { show: boolean, document: File | null, setActiveDocument: any }) => {
+    const { register, handleSubmit, control } = useForm<OPMproperties>({
         defaultValues: {
             status: "draft"
         }
     });
-    const onSubmit = (data) => {
-        fakeSaveMetadata(data).then(() => {
-            setActiveDocumentId(null);
-        });
+    const onSubmit = (data: OPMproperties) => {
+
+        const metadata: Array<Property> = Object.entries(data).map((datum) => {
+            if (datum[0] === "publish_date") {
+                let prop: Property = { name: datum[0], value: datum[1] ? (datum[1] as Date).toDateString() : "" }
+                return prop;
+            }
+            let prop: Property = { name: datum[0], value: datum[1] as string };
+            return prop;
+        })
+
+        if (document) {
+            if (document.property_groups && document.property_groups.length > 0) document.property_groups[0].fields = metadata;
+            invoke('set_file_properties', { target: document.path_lower, properties: metadata });
+        }
+
+        setActiveDocument(null);
+
     };
 
     const props = useSpring({
@@ -49,30 +46,19 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
         width: "500px"
     });
 
-    const [document, setDocument] = useState(null);
+    const hasProperty = document && document.property_groups && document.property_groups.length > 0 && document.property_groups[0];
 
-    useEffect(() => {
-        if (documentId === null) return;
-        fakeSingleMetadataApiResponse(documentId).then(
-            ({
-                document: {
-                    id,
-                    name,
-                    metadata: { author, status, categories, publish_date }
-                }
-            }) => {
-                setDocument({
-                    id,
-                    name,
-                    metadata: { author, status, categories, publish_date }
-                });
-            }
-        );
-    }, [documentId]);
+    const checkForValue = (name: String): string | undefined => {
+        if (!hasProperty) return undefined;
+        let prop = document.property_groups[0].fields.find((property) => { property.name = name as string });
+        if (prop) return prop.value;
+        return undefined;
+    }
+
 
     return (
         <animated.div
-            style={props}
+            style={props as any}
             className="bg-white border-l-2 border-gray-200 p-4"
         >
             <div className="flex">
@@ -83,7 +69,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                 )}
                 <div
                     className="shrink-0 cursor-pointer"
-                    onClick={() => setActiveDocumentId(null)}
+                    onClick={() => setActiveDocument(null)}
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -103,7 +89,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
             </div>
             <form className="mt-10 pr-4" onSubmit={handleSubmit(onSubmit)}>
                 <div>
-                    <label for="author" className="text-gray-700">
+                    <label htmlFor="author" className="text-gray-700">
                         Author
                     </label>
                     <input
@@ -112,13 +98,13 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                         className={inputClasses}
                         {...register("author")}
                         value={
-                            document && document.metadata ? document.metadata.author : null
+                            checkForValue("author")
                         }
                     />
                 </div>
 
                 <div className="mt-4">
-                    <label for="status" className="text-gray-700">
+                    <label htmlFor="status" className="text-gray-700">
                         Status
                     </label>
                     <select
@@ -126,7 +112,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                         className={inputClasses}
                         {...register("status", { required: true })}
                         value={
-                            document && document.metadata ? document.metadata.status : null
+                            checkForValue("status")
                         }
                     >
                         <option value="draft">Draft</option>
@@ -135,7 +121,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                 </div>
 
                 <div className="mt-4">
-                    <label for="status" className="text-gray-700">
+                    <label htmlFor="status" className="text-gray-700">
                         Publish Date
                     </label>
                     <Controller
@@ -147,9 +133,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                                 onChange={(date) => field.onChange(date)}
                                 className={inputClasses}
                                 selected={
-                                    document && document.metadata
-                                        ? document.metadata.publish_date
-                                        : null
+                                    checkForValue("publish_date") as Date | undefined
                                 }
                             />
                         )}
@@ -157,7 +141,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                 </div>
 
                 <div className="mt-4">
-                    <label for="categories" className="text-gray-700">
+                    <label htmlFor="categories" className="text-gray-700">
                         Categories (one per line)
                     </label>
                     <textarea
@@ -165,15 +149,13 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                         className={inputClasses}
                         {...register("categories")}
                         value={
-                            document && document.metadata
-                                ? document.metadata.categories
-                                : null
+                            checkForValue("categories")
                         }
                     />
                 </div>
 
                 <div className="mt-4">
-                    <label for="tags" className="text-gray-700">
+                    <label htmlFor="tags" className="text-gray-700">
                         Tags (one per line)
                     </label>
                     <textarea
@@ -181,15 +163,13 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                         className={inputClasses}
                         {...register("tags")}
                         value={
-                            document && document.metadata
-                                ? document.metadata.categories
-                                : null
+                            checkForValue("tags")
                         }
                     />
                 </div>
 
                 <div className="mt-4">
-                    <label for="template" className="text-gray-700">
+                    <label htmlFor="template" className="text-gray-700">
                         Display Template
                     </label>
                     <input
@@ -198,7 +178,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                         className={inputClasses}
                         {...register("template")}
                         value={
-                            document && document.metadata ? document.metadata.template : null
+                            checkForValue("template")
                         }
                     />
                 </div>
@@ -206,7 +186,7 @@ const Drawer = ({ show, documentId, setActiveDocumentId }: any) => {
                 <input
                     type="submit"
                     value="Update Metadata"
-                    className="mt-10 px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80"
+                    className="mt-10 px-4 py-2 hover:cursor-pointer font-medium tracking-wide text-white capitalize transition-colors duration-200 transform bg-blue-600 rounded-md hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80"
                 />
             </form>
         </animated.div>
