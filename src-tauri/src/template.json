@@ -25,7 +25,14 @@
         },
         {
             "name": "Categories",
-            "description": "A list of categories/tags the document falls under (ex. 'tutorial work business') categories/tags separated by spaces",
+            "description": "A list of categories the document falls under (ex. 'tutorial work business') categories/tags separated by spaces",
+            "type": {
+                ".tag": "string"
+            }
+        },
+        {
+            "name": "Tags",
+            "description": "A list of tags the document falls under (ex. 'tutorial work business') categories/tags separated by spaces",
             "type": {
                 ".tag": "string"
             }
