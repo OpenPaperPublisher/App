@@ -253,6 +253,12 @@ fn set_file_properties(
     Ok(())
 }
 
+// Exports the target folder to the specified directory
+// Lots of subfunctions, but in essence:
+//    Lists the files in the directory
+//    Calls another request to the api for each to get their metadata (actual api export metadata is insufficient)
+//    Exports all the paper documents in the directory as .paper files
+//    Uses the metadata to write metadata.json
 #[tauri::command]
 fn export_folder(
     auth: tauri::State<Mutex<AuthState>>,
@@ -284,7 +290,7 @@ fn export_folder(
         })?
         .clone();
 
-    let files = backend_list_files_in_dir(&auth_info.client, template_id.clone(), folder_path)?;
+    let files = filter_files_in_dir(&auth_info.client, template_id.clone(), folder_path)?;
 
     for file in files {
         let path = match &file.path_lower {
@@ -376,7 +382,7 @@ fn list_files_in_dir(
         })?
         .clone();
 
-    let data = backend_list_files_in_dir(&info.client, template_id, target)?;
+    let data = filter_files_in_dir(&info.client, template_id, target)?;
 
     Ok(data)
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
@@ -431,7 +437,9 @@ fn list_folders_in_dir(
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
 }
 
-fn backend_list_files_in_dir(
+// A helper function for export_folder and list_files_in_dir to use the same filter without having to repeat code
+// Filters the result of a folder list to return an array containing only files of the paper document type
+fn filter_files_in_dir(
     client: &impl dropbox_sdk::client_trait::UserAuthClient,
     template_id: String,
     target: String,
