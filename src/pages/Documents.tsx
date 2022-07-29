@@ -6,19 +6,14 @@ import Drawer from "./components/Drawer";
 import PublishDrawer from "./components/PublishDrawer";
 import { File, Folder } from "../dropbox_types";
 
-const listFiles = async (folderPath: String): Promise<File[]> => {
-    let metadata = await invoke('list_target_dir', { target: "" })
-    return (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "file" }) as File[];
-};
-
 const Documents = ({ breadcrumbs, dispatch, folderPath }: any) => {
     const [documents, setDocuments] = useState<File[]>([]);
     const [activeDocumentId, setActiveDocumentId] = useState<String | null>(null);
     const [publishDrawOpen, togglePublishDrawer] = useState(false);
 
     useEffect(() => {
-        listFiles(folderPath).then((documents) =>
-            setDocuments(documents)
+        invoke('list_files_in_dir', { target: folderPath as string }).then((documents) =>
+            setDocuments(documents as File[])
         );
     }, [folderPath]);
 
