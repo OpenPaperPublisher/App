@@ -10,7 +10,7 @@
             }
         },
         {
-            "name": "date_published",
+            "name": "publish_date",
             "description": "The date the document will be / was published",
             "type": {
                 ".tag": "string"
@@ -33,6 +33,13 @@
         {
             "name": "tags",
             "description": "A list of tags the document falls under (ex. 'tutorial work business') categories/tags separated by spaces",
+            "type": {
+                ".tag": "string"
+            }
+        },
+        {
+            "name": "template",
+            "description": "The template the file should use to be displayed when published",
             "type": {
                 ".tag": "string"
             }
