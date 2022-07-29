@@ -18,7 +18,7 @@ tauri-build = { version = "1.0.2", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.0.2", features = ["api-all"] }
-dropbox-sdk = { version = "0.15.0", features = ["default_client", "dbx_check", "dbx_file_properties", "dbx_files"] }
+dropbox-sdk = { version = "0.15.0", features = ["default_client", "dbx_check", "dbx_file_properties", "dbx_files", "unstable"] }
 # TODO: There is a way to cut down on compile time for dropbox sdk by only specifying the features it needs (see the docs)
 
 [features]

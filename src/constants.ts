@@ -1,0 +1,6 @@
+export enum Pages {
+    PAGE_HOME = "PAGE_HOME",
+    PAGE_FOLDERS = "PAGE_FOLDERS",
+    PAGE_DOCUMENTS = "PAGE_DOCUMENTS",
+}
+
