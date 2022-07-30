@@ -353,7 +353,7 @@ fn export_folder(
 
     let data = FileMetadata { data: file_list };
     fs::write(
-        [&export_path, "\\metadata.json"].concat(),
+        [&export_path, "/", "metadata.json"].concat(),
         serde_json::to_string(&data)?,
     )?; //Write the metadata file
 
