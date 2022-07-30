@@ -7,7 +7,7 @@ use std::{fs, sync::Mutex};
 
 use dropbox_sdk::oauth2;
 
-const APPKEY: &str = "z4c46xuhvi38jhh";
+const APPKEY: &str = "31x1qva2ggzu9rx";
 
 static TEMPLATE_JSON: &str = include_str!("template.json");
 
