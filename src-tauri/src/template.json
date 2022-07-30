@@ -3,29 +3,43 @@
     "description": "A template for the OpenPaperMatter project.",
     "fields": [
         {
-            "name": "Author",
+            "name": "author",
             "description": "The name of the author publishing the blog",
             "type": {
                 ".tag": "string"
             }
         },
         {
-            "name": "Date published",
+            "name": "publish_date",
             "description": "The date the document will be / was published",
             "type": {
                 ".tag": "string"
             }
         },
         {
-            "name": "Status",
+            "name": "status",
             "description": "The status of the document (example: 'published', 'draft', 'deleted', 'other')",
             "type": {
                 ".tag": "string"
             }
         },
         {
-            "name": "Categories",
-            "description": "A list of categories/tags the document falls under (ex. 'tutorial work business') categories/tags separated by spaces",
+            "name": "categories",
+            "description": "A list of categories the document falls under (ex. 'tutorial work business') categories/tags separated by spaces",
+            "type": {
+                ".tag": "string"
+            }
+        },
+        {
+            "name": "tags",
+            "description": "A list of tags the document falls under (ex. 'tutorial work business') categories/tags separated by spaces",
+            "type": {
+                ".tag": "string"
+            }
+        },
+        {
+            "name": "template",
+            "description": "The template the file should use to be displayed when published",
             "type": {
                 ".tag": "string"
             }

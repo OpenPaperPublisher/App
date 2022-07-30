@@ -35,3 +35,11 @@ export interface PropertyGroup {
     template_id: string,
     fields: Array<Property>
 }
+export interface OPMproperties {
+    author: String,
+    publish_date: String,
+    status: String,
+    categories: String,
+    tags: String,
+    template: String,
+}

@@ -183,6 +183,7 @@ fn list_target_dir(
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
 }
 
+// Takes in a target and a list of file properties (hopefully matching the schema denoted in template.json) and upserts file properties accordingly
 #[tauri::command]
 fn set_file_properties(
     auth: tauri::State<Mutex<AuthState>>,
@@ -253,12 +254,18 @@ fn set_file_properties(
     Ok(())
 }
 
+// Exports the target folder to the specified directory
+// Lots of subfunctions, but in essence:
+//    Lists the files in the directory
+//    Calls another request to the api for each to get their metadata (actual api export metadata is insufficient)
+//    Exports all the paper documents in the directory as .paper files
+//    Uses the metadata to write metadata.json
 #[tauri::command]
 fn export_folder(
     auth: tauri::State<Mutex<AuthState>>,
     app_info: tauri::State<Mutex<AppInfo>>,
     export_path: String,
-    file_paths: Vec<String>,
+    folder_path: String,
 ) -> Result<(), StringFromErr> {
     use dropbox_sdk::file_properties;
     use dropbox_sdk::files;
@@ -284,7 +291,13 @@ fn export_folder(
         })?
         .clone();
 
-    for path in file_paths {
+    let files = filter_files_in_dir(&auth_info.client, template_id.clone(), folder_path)?;
+
+    for file in files {
+        let path = match &file.path_lower {
+            Some(file_path) => file_path.clone(),
+            None => continue,
+        };
         let request_result = files::export(
             &auth_info.client,
             &files::ExportArg::new(path.clone()),
@@ -319,9 +332,11 @@ fn export_folder(
 
         match data.property_groups {
             Some(groups) => {
-                let properties = &groups[0].fields;
-                for prop in properties {
-                    file.insert(prop.name.clone(), prop.value.clone());
+                if !groups.is_empty() {
+                    let properties = &groups[0].fields;
+                    for prop in properties {
+                        file.insert(prop.name.clone(), prop.value.clone());
+                    }
                 }
             }
             None => {}
@@ -345,6 +360,119 @@ fn export_folder(
     Ok(())
 }
 
+// Lists the target directory's files of the user's dropbox
+#[tauri::command]
+fn list_files_in_dir(
+    auth: tauri::State<Mutex<AuthState>>,
+    app_info: tauri::State<Mutex<AppInfo>>,
+    target: String,
+) -> Result<Vec<dropbox_sdk::files::FileMetadata>, StringFromErr> {
+    let guard = auth.lock().unwrap();
+    let info = if let AuthState::Authenticated(info) = &*guard {
+        info
+    } else {
+        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
+    };
+
+    let guard = app_info.lock().unwrap();
+    let template_id = guard
+        .template_id
+        .as_ref()
+        .ok_or_else(|| {
+            StringFromErr(
+                "There was an error accessing the template id (template id not initialized)".into(),
+            )
+        })?
+        .clone();
+
+    let data = filter_files_in_dir(&info.client, template_id, target)?;
+
+    Ok(data)
+    //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
+}
+
+// Lists the target directory of the user's dropbox
+#[tauri::command]
+fn list_folders_in_dir(
+    auth: tauri::State<Mutex<AuthState>>,
+    app_info: tauri::State<Mutex<AppInfo>>,
+    target: String,
+) -> Result<Vec<dropbox_sdk::files::FolderMetadata>, StringFromErr> {
+    use dropbox_sdk::file_properties;
+    use dropbox_sdk::files;
+
+    let guard = auth.lock().unwrap();
+    let info = if let AuthState::Authenticated(info) = &*guard {
+        info
+    } else {
+        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
+    };
+
+    let guard = app_info.lock().unwrap();
+    let template_id = guard
+        .template_id
+        .as_ref()
+        .ok_or_else(|| {
+            StringFromErr(
+                "There was an error accessing the template id (template id not initialized)".into(),
+            )
+        })?
+        .clone();
+
+    let data = files::list_folder(
+        &info.client,
+        &files::ListFolderArg::new(target).with_include_property_groups(
+            file_properties::TemplateFilterBase::FilterSome(vec![template_id]),
+        ),
+    )??
+    .entries
+    .iter()
+    .flat_map(|folder| {
+        let mut is_folder = None;
+        if let files::Metadata::Folder(folder_data) = folder {
+            is_folder = Some(folder_data.clone());
+        }
+        is_folder
+    })
+    .collect();
+
+    Ok(data)
+    //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
+}
+
+// A helper function for export_folder and list_files_in_dir to use the same filter without having to repeat code
+// Filters the result of a folder list to return an array containing only files of the paper document type
+fn filter_files_in_dir(
+    client: &impl dropbox_sdk::client_trait::UserAuthClient,
+    template_id: String,
+    target: String,
+) -> Result<Vec<dropbox_sdk::files::FileMetadata>, StringFromErr> {
+    use dropbox_sdk::file_properties;
+    use dropbox_sdk::files;
+
+    let data = files::list_folder(
+        client,
+        &files::ListFolderArg::new(target).with_include_property_groups(
+            file_properties::TemplateFilterBase::FilterSome(vec![template_id]),
+        ),
+    )??
+    .entries
+    .iter()
+    .flat_map(|file| {
+        let mut is_file = None;
+        if let files::Metadata::File(file_data) = file {
+            if file_data.name.ends_with(".paper") {
+                is_file = Some(file_data.clone());
+            }
+        }
+        is_file
+    })
+    .collect();
+
+    Ok(data)
+    //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
+}
+
 fn main() {
     let context = tauri::generate_context!();
 
@@ -364,6 +492,8 @@ fn main() {
             upsert_template,
             set_file_properties,
             list_target_dir,
+            list_files_in_dir,
+            list_folders_in_dir,
             export_folder,
         ])
         .run(context)

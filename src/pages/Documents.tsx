@@ -6,19 +6,16 @@ import Drawer from "./components/Drawer";
 import PublishDrawer from "./components/PublishDrawer";
 import { File, Folder } from "../dropbox_types";
 
-const listFiles = async (folderPath: String): Promise<File[]> => {
-    let metadata = await invoke('list_target_dir', { target: "" })
-    return (metadata as Array<File | Folder>).filter((data) => { return data[".tag"] === "file" }) as File[];
-};
-
 const Documents = ({ breadcrumbs, dispatch, folderPath }: any) => {
     const [documents, setDocuments] = useState<File[]>([]);
-    const [activeDocumentId, setActiveDocumentId] = useState<String | null>(null);
+    const [activeDocument, setActiveDocument] = useState<File | null>(null);
     const [publishDrawOpen, togglePublishDrawer] = useState(false);
 
     useEffect(() => {
-        listFiles(folderPath).then((documents) =>
-            setDocuments(documents)
+        invoke('list_files_in_dir', { target: folderPath as string }).then((documents) => {
+            console.log(documents as File[]);
+            setDocuments(documents as File[]);
+        }
         );
     }, [folderPath]);
 
@@ -37,24 +34,24 @@ const Documents = ({ breadcrumbs, dispatch, folderPath }: any) => {
                 </button>
             </div>
             <Table headers={["Document Title"]}>
-                {documents.map(({ id, name }) => (
-                    <tr key={id} className="text-gray-700">
+                {documents.map((document) => (
+                    <tr key={document.path_lower} className="text-gray-700">
                         <td className="px-4 py-3">
                             <div className="flex items-center text-sm">
                                 <div
                                     className="cursor-pointer"
                                     onClick={() => {
-                                        if (activeDocumentId === null) {
-                                            setActiveDocumentId(id);
-                                        } else if (activeDocumentId === id) {
-                                            setActiveDocumentId(null);
+                                        if (activeDocument === null) {
+                                            setActiveDocument(document);
+                                        } else if (activeDocument === document) {
+                                            setActiveDocument(null);
                                         } else {
-                                            setActiveDocumentId(null);
-                                            setActiveDocumentId(id);
+                                            setActiveDocument(null);
+                                            setActiveDocument(document);
                                         }
                                     }}
                                 >
-                                    {name}
+                                    {document.name}
                                 </div>
                             </div>
                         </td>
@@ -63,9 +60,9 @@ const Documents = ({ breadcrumbs, dispatch, folderPath }: any) => {
             </Table>
 
             <Drawer
-                show={activeDocumentId !== null}
-                documentId={activeDocumentId}
-                setActiveDocumentId={setActiveDocumentId}
+                show={activeDocument !== null}
+                document={activeDocument}
+                setActiveDocument={setActiveDocument}
             />
 
             <PublishDrawer
