@@ -11,8 +11,13 @@
   "dependencies": {
     "@tauri-apps/api": "^1.0.1",
     "react": "^18.0.0",
+    "react-datepicker": "^4.8.0",
     "react-dom": "^18.0.0",
+    "react-hook-form": "^7.34.0",
     "react-snap": "^1.23.0"
+  },
+  "peerDependencies": {
+    "react-spring": "^8.0.27"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1.0.2",
