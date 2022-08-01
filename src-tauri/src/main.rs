@@ -183,6 +183,43 @@ fn list_target_dir(
     //NOTE: there might be some other processing we would want to do on the back-end before pushing to front-end
 }
 
+#[tauri::command]
+fn get_file_properties(
+    auth: tauri::State<Mutex<AuthState>>,
+    app_info: tauri::State<Mutex<AppInfo>>,
+    path: String,
+) -> Result<dropbox_sdk::files::Metadata, StringFromErr> {
+    use dropbox_sdk::file_properties;
+    use dropbox_sdk::files;
+
+    let guard = auth.lock().unwrap();
+    let info = if let AuthState::Authenticated(info) = &*guard {
+        info
+    } else {
+        return Err(StringFromErr("There was an error accessing the authentication info (AuthInfo not initalized / Auth State incorrect)".into()));
+    };
+
+    let guard = app_info.lock().unwrap();
+    let template_id = guard
+        .template_id
+        .as_ref()
+        .ok_or_else(|| {
+            StringFromErr(
+                "There was an error accessing the template id (template id not initialized)".into(),
+            )
+        })?
+        .clone();
+
+    let data = files::get_metadata(
+        &info.client,
+        &files::GetMetadataArg::new(path).with_include_property_groups(
+            file_properties::TemplateFilterBase::FilterSome(vec![template_id]),
+        ),
+    )??;
+
+    Ok(data)
+}
+
 // Takes in a target and a list of file properties (hopefully matching the schema denoted in template.json) and upserts file properties accordingly
 #[tauri::command]
 fn set_file_properties(
@@ -491,6 +528,7 @@ fn main() {
             finalize_auth,
             upsert_template,
             set_file_properties,
+            get_file_properties,
             list_target_dir,
             list_files_in_dir,
             list_folders_in_dir,
