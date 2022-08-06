@@ -3,7 +3,10 @@
     windows_subsystem = "windows"
 )]
 
-use std::{fs, sync::Mutex};
+use std::fs;
+use std::io::prelude::*;
+use std::sync::Mutex;
+use std::File;
 
 use dropbox_sdk::oauth2;
 
@@ -62,25 +65,25 @@ struct FileMetadata {
 fn get_auth_url(auth: tauri::State<Mutex<AuthState>>) -> String {
     let auth_type = oauth2::Oauth2Type::PKCE(oauth2::PkceCode::new());
 
-    //Need to store it as a variable for `auth-type` to dereference
+    // Need to store it as a variable for `auth-type` to dereference
     let url = oauth2::AuthorizeUrlBuilder::new(APPKEY, &auth_type)
         .build()
         .as_str()
         .to_string();
 
-    //Update the auth state to now be `in progress`
+    // Update the auth state to now be `in progress`
     *auth.lock().unwrap() = AuthState::AuthInProgress(AuthProgressData { auth_type });
     url
 }
 
-//Using the authorization code, complete the authentication process
+// Using the authorization code, complete the authentication process
 #[tauri::command]
 fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) -> Result<(), StringFromErr> {
     let mut lock = auth.lock().unwrap();
     let auth_type = if let AuthState::AuthInProgress(auth_struct) = &*lock {
         &auth_struct.auth_type
     } else {
-        return Err(StringFromErr("There was an error accessing the authentication type (OAuth2 not initalized / Auth State incorrect)".to_string()));
+        return Err(StringFromErr("There was an error accessing the authentication type (OAuth2 not initialized / Auth State incorrect)".to_string()));
     };
 
     let client = dropbox_sdk::default_client::UserAuthDefaultClient::new(
@@ -100,7 +103,7 @@ fn finalize_auth(auth: tauri::State<Mutex<AuthState>>, code: &str) -> Result<(),
     Ok(())
 }
 
-//Checks the app's registered templates to see if a template exists.
+// Checks the app's registered templates to see if a template exists.
 //-If no template exists, it creates a new one
 //-If the template exists, it updates it with the most recent `template.json` file configuration
 #[tauri::command]
@@ -125,7 +128,7 @@ fn upsert_template(
         &templates
     );
     if templates.template_ids.is_empty() {
-        //Create the template from the JSON fill
+        // Create the template from the JSON fill
         let arg = file_properties::AddTemplateArg::new(
             template.name,
             template.description,
@@ -511,6 +514,12 @@ fn filter_files_in_dir(
 }
 
 fn main() {
+    let APP_DIR = tauri::PathResolver.app_dir();
+    println!("APP_DIR: {1}", APP_DIR);
+
+    let mut file = File::create("foo.txt")?;
+    file.write_all(b"Hello, world!")?;
+
     let context = tauri::generate_context!();
 
     //TODO: implement a way to tell if the user has been authenticated in the past and thus would not require another verification process (setting the state of auth_state to Authenticated)
