@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^1.0.1",
+    "autoprefixer": "^10.4.8",
+    "postcss": "^8.4.16",
+    "postcss-cli": "^10.0.0",
     "react": "^18.0.0",
     "react-datepicker": "^4.8.0",
     "react-dom": "^18.0.0",
